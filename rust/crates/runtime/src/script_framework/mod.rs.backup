@@ -1,0 +1,301 @@
+//! Script Framework for Surgical Development
+
+use std::collections::HashMap;
+use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
+use anyhow::Result;
+use std::fs;
+use sha2::{Sha256, Digest};
+
+pub struct ScriptFramework {
+    script_name: String,
+    base_path: PathBuf,
+    sections: HashMap<String, ScriptSection>,
+    config: ScriptConfig,
+
+impl fmt::Display for ScriptSection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ScriptSection(name: {}, capacity: {})", self.name, self.capacity)
+    }
+}
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptConfig {
+    pub language: String,
+    pub author: String,
+    pub version: String,
+    pub description: String,
+    pub created: String,
+
+impl fmt::Display for ScriptSection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ScriptSection(name: {}, capacity: {})", self.name, self.capacity)
+    }
+}
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptSection {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub capacity: u16,
+    pub next_available: u16,
+    pub files: Vec<ScriptFile>,
+
+impl fmt::Display for ScriptSection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ScriptSection(name: {}, capacity: {})", self.name, self.capacity)
+    }
+}
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptFile {
+    pub id: u16,
+    pub path: PathBuf,
+    pub checksum: String,
+    pub content: String,
+    pub dependencies: Vec<String>,
+
+impl fmt::Display for ScriptSection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ScriptSection(name: {}, capacity: {})", self.name, self.capacity)
+    }
+}
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationResult {
+    pub is_valid: bool,
+    pub errors: Vec<String>,
+    pub warnings: Vec<String>,
+
+impl fmt::Display for ScriptSection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ScriptSection(name: {}, capacity: {})", self.name, self.capacity)
+    }
+}
+}
+
+impl ScriptFramework {
+    pub fn new(script_name: &str, config: ScriptConfig) -> Result<Self, crate::providers::ProviderError> {
+        let base_path = PathBuf::from("scripts").join(script_name);
+        
+        // Créer la structure de répertoires
+        fs::create_dir_all(&base_path)?;
+        fs::create_dir_all(base_path.join(".claw"))?;
+        
+        // Créer les sections par défaut
+        let sections = Self::create_default_sections()?;
+        
+        // Sauvegarder la configuration
+        Self::save_config(&base_path, &config)?;
+        Self::save_sections_config(&base_path, &sections)?;
+        
+        Ok(Self {
+            script_name: script_name.to_string(),
+            base_path,
+            sections,
+            config,
+        })
+    }
+    
+    pub fn create_section(&mut self, section_name: &str, capacity: u16) -> Result<String, crate::providers::ProviderError> {
+        let section_id = Self::generate_section_id(&mut self.sections);
+        
+        let section = ScriptSection {
+            id: section_id.clone(),
+            name: section_name.to_string(),
+            description: format!("Section: {}", section_name),
+            capacity,
+            next_available: if capacity > 0 { 10 } else { capacity / 10 }, // First available slot
+            files: Vec::new(),
+        };
+        
+        // Créer le répertoire de la section
+        let section_path = self.base_path.join(&section_id);
+        fs::create_dir_all(&section_path)?;
+        
+        self.sections.insert(section_id.clone(), section);
+        Self::save_sections_config(&self.base_path, &self.sections)?;
+        
+        Ok(section_id)
+    }
+    
+    pub fn add_file(&mut self, section: &str, content: &str, dependencies: Vec<String>) -> Result<u16, crate::providers::ProviderError> {
+        let section = self.sections.get_mut(section)
+            .ok_or_else(|| crate::providers::ProviderError::Api(format!("Section '{}' not found", section)))?;
+        
+        let file_id = section.next_available;
+        if file_id >= section.capacity {
+            return Err(crate::providers::ProviderError::Api(format!("Section '{}' is full", section)));
+        }
+        
+        let file_path = self.base_path.join(&section.id).join(format!("{:04}.rs", file_id));
+        let checksum = Self::calculate_checksum(content);
+        
+        let script_file = ScriptFile {
+            id: file_id,
+            path: file_path.clone(),
+            checksum,
+            content: content.to_string(),
+            dependencies,
+        };
+        
+        // Écrire le fichier avec entête structurée
+        let formatted_content = Self::format_file_with_header(&script_file, content);
+        fs::write(&file_path, formatted_content)?;
+        
+        section.files.push(script_file);
+        section.next_available += 1;
+        
+        Self::save_sections_config(&self.base_path, &self.sections)?;
+        
+        Ok(file_id)
+    }
+    
+    pub fn reconstruct_script(&self) -> Result<String, crate::providers::ProviderError> {
+        let mut sections_order: Vec<_> = self.sections.keys().collect();
+        sections_order.sort();
+        
+        let mut script_content = Vec::new();
+        
+        for section_id in sections_order {
+            let section = &self.sections[section_id];
+            let mut section_files = section.files.clone();
+            section_files.sort_by_key(|f| f.id);
+            
+            for file in section_files {
+                let file_path = self.base_path.join(&section.id).join(format!("{:04}.rs", file.id));
+                if file_path.exists() {
+                    let content = fs::read_to_string(&file_path)?;
+                    script_content.push(content);
+                    script_content.push("\n\n".to_string());
+                }
+            }
+        }
+        
+        Ok(script_content.join(""))
+    }
+    
+    pub fn validate_checksum(&self) -> Result<ValidationResult, crate::providers::ProviderError> {
+        let reconstructed = self.reconstruct_script()?;
+        let original = fs::read_to_string(self.base_path.join("script_original.rs")).unwrap_or_default();
+        let reconstructed_checksum = Self::calculate_checksum(&reconstructed);
+        let original_checksum = fs::read_to_string(self.base_path.join(".claw/checksum.txt")).unwrap_or_default();
+        
+        let is_valid = reconstructed_checksum == original_checksum;
+        
+        Ok(ValidationResult {
+            is_valid,
+            errors: if is_valid { Vec::new() } else { vec!["Checksum mismatch".to_string()] },
+            warnings: Vec::new(),
+        })
+    }
+    
+    pub fn surgical_edit(&mut self, section: &str, file_id: u16, new_content: &str) -> Result<(), crate::providers::ProviderError> {
+        let section = self.sections.get_mut(section)
+            .ok_or_else(|| crate::providers::ProviderError::Api(format!("Section '{}' not found", section)))?;
+        
+        let file = section.files.iter_mut()
+            .find(|f| f.id == file_id)
+            .ok_or_else(|| crate::providers::ProviderError::Api(format!("File '{}' not found in section '{}'", file_id, section)))?;
+        
+        let new_checksum = Self::calculate_checksum(new_content);
+        file.checksum = new_checksum;
+        file.content = new_content.to_string();
+        
+        let file_path = &file.path;
+        let formatted_content = Self::format_file_with_header(file, new_content);
+        fs::write(file_path, formatted_content)?;
+        
+        Self::save_sections_config(&self.base_path, &self.sections)?;
+        
+        Ok(())
+    }
+    
+    fn create_default_sections() -> Result<HashMap<String, ScriptSection>, crate::providers::ProviderError> {
+        let mut sections = HashMap::new();
+        
+        let default_sections = vec![
+            ("0000", "headers", "En-tête, imports, documentation principale", 100),
+            ("0100", "config", "Configuration, variables globales", 100),
+            ("0200", "main_functions", "Fonctions principales", 100),
+            ("0300", "error_handling", "Gestion d'erreurs et validation", 100),
+            ("0400", "utilities", "Fonctions utilitaires", 100),
+            ("0500", "tests", "Tests unitaires et intégration", 100),
+            ("0600", "docs", "Documentation et aide", 100),
+            ("0700", "future", "Extensions futures", 100),
+            ("0800", "expansions", "Espace pour expansions", 200),
+        ];
+        
+        for (id, name, description, capacity) in default_sections {
+            let section = ScriptSection {
+                id: id.to_string(),
+                name: name.to_string(),
+                description: description.to_string(),
+                capacity,
+                next_available: 10, // First available slot
+                files: Vec::new(),
+            };
+            sections.insert(id.to_string(), section);
+        }
+        
+        Ok(sections)
+    }
+    
+    fn generate_section_id(sections: &mut HashMap<String, ScriptSection>) -> String {
+        let max_id = sections.keys()
+            .filter_map(|k| k.parse::<u32>().ok())
+            .max()
+            .unwrap_or(0);
+        
+        (max_id + 1).to_string()
+    }
+    
+    fn calculate_checksum(content: &str) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(content.as_bytes());
+        format!("{:x}", hasher.finalize())
+    }
+    
+    fn format_file_with_header(file: &ScriptFile, content: &str) -> String {
+        format!(r#"/**
+============================================================================
+FILE ID: {}
+CHECKSUM: {}
+DEPENDENCIES: {}
+============================================================================
+*/
+
+{}"#, 
+            file.id, 
+            file.checksum,
+            file.dependencies.join(", "),
+            content
+        )
+    }
+    
+    fn save_config(base_path: &PathBuf, config: &ScriptConfig) -> Result<(), crate::providers::ProviderError> {
+        let config_path = base_path.join(".claw/config.json");
+        let yaml = serde_json::to_string(config)?;
+        fs::write(config_path, yaml)?;
+        Ok(())
+    }
+    
+    fn save_sections_config(base_path: &PathBuf, sections: &HashMap<String, ScriptSection>) -> Result<(), crate::providers::ProviderError> {
+        let sections_path = base_path.join(".claw/sections.json");
+        let yaml = serde_json::to_string(sections)?;
+        fs::write(sections_path, yaml)?;
+        Ok(())
+    }
+
+impl fmt::Display for ScriptSection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ScriptSection(name: {}, capacity: {})", self.name, self.capacity)
+    }
+}
+}
+

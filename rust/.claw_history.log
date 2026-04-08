@@ -1,0 +1,46 @@
+[2026-04-07 19:15:42] Prompt: optimize matrix multiplication using rayon
+[2026-04-07 19:15:54] Prompt: optimize matrix multiplication using rayon
+Response: Claw Code with Ollama - Model: Optimization - Using deepseek-coder:6.7b
+==========================================
+Prompt: optimize matrix multiplication using rayon
+---
+[2026-04-07 19:16:07] Prompt: design rust microservice architecture
+Response: Claw Code with Ollama - Model: General coding - Using codellama:7b
+==========================================
+Prompt: design rust microservice architecture
+---
+[2026-04-07 19:16:17] Prompt: explain rust async await patterns
+Response: Claw Code with Ollama - Model: Explanation - Using deepseek-coder-v2:latest
+==========================================
+Prompt: explain rust async await patterns
+---
+[2026-04-07 19:17:17] Prompt: write a hello world function in rust
+Response: 
+Claw Code with Ollama - Model: General coding - Using codellama:7b
+==========================================
+Prompt: write a hello world function in rust
+---
+[2026-04-07 19:17:30] Prompt: optimize bubble sort algorithm
+Response: 
+Claw Code with Ollama - Model: Optimization - Using deepseek-coder:6.7b
+==========================================
+Prompt: optimize bubble sort algorithm
+---
+[2026-04-07 19:17:41] Prompt: explain rust error handling
+Response: 
+Claw Code with Ollama - Model: Explanation - Using deepseek-coder-v2:latest
+==========================================
+Prompt: explain rust error handling
+---
+[2026-04-07 19:18:02] Prompt: optimize bubble sort algorithm
+Response: 
+Claw Code with Ollama - Model: Optimization - Using deepseek-coder:6.7b
+==========================================
+Prompt: optimize bubble sort algorithm
+---
+[2026-04-07 19:18:14] Prompt: explain rust error handling
+Response: 
+Claw Code with Ollama - Model: Explanation - Using deepseek-coder-v2:latest
+==========================================
+Prompt: explain rust error handling
+---

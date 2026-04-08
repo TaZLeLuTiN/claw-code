@@ -48,6 +48,7 @@ pub mod team_cron_registry;
 mod trust_resolver;
 mod usage;
 pub mod worker_boot;
+pub mod providers;
 
 pub use bash::{execute_bash, BashCommandInput, BashCommandOutput};
 pub use bootstrap::{BootstrapPhase, BootstrapPlan};
@@ -177,3 +178,7 @@ pub(crate) fn test_env_lock() -> std::sync::MutexGuard<'static, ()> {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
+pub mod bridge;
+
+pub mod script_framework;
+

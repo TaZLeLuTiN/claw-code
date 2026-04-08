@@ -1,5 +1,5 @@
 [workspace]
-members = ["claw_standalone","crates/api","crates/commands","crates/compat-harness","crates/mock-anthropic-service","crates/plugins","crates/runtime","crates/rusty-claude-cli","crates/telemetry","crates/tools"]
+members = ["claw_standalone","crates/*"]
 resolver = "2"
 
 [workspace.package]
@@ -10,8 +10,6 @@ publish = false
 
 [workspace.dependencies]
 serde_json = "1"
-crossterm = "0.29.0"
-anyhow = "1.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -22,3 +20,7 @@ pedantic = { level = "warn", priority = -1 }
 module_name_repetitions = "allow"
 missing_panics_doc = "allow"
 missing_errors_doc = "allow"
+
+[workspace.dependencies]
+crossterm = "0.29.0"
+anyhow = "1.0"

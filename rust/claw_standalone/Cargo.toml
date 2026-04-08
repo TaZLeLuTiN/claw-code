@@ -1,0 +1,15 @@
+[package]
+name = "claw_standalone"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+crossterm = "0.27"
+dirs = "5.0"
+anyhow = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+reqwest = { version = "0.12", features = ["json"] }
+serde_json = "1.0"
