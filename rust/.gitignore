@@ -32,3 +32,17 @@ logs/
 # Tests
 test-*/
 tmp/
+
+# Frontend build and dependencies
+crates/web-ui/dist/
+crates/web-ui/node_modules/
+crates/web-ui/package-lock.json
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+
+# Test directories
+test-*/
+test_bmad/
