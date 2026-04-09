@@ -6,7 +6,16 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-# Dépendances GUI si nécessaires
-# crossterm = "0.27"
-# egui = "0.23"
-crossterm = { workspace = true }
+# Dépendances web
+axum = { version = "0.7", features = ["json"] }
+tower-http = { version = "0.5", features = ["fs"] }
+
+# Dépendances workspace
+anyhow.workspace = true
+serde_json.workspace = true
+
+# Dépendances spécifiques
+serde = { version = "1.0", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }  # Pour les appels HTTP
