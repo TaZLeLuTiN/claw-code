@@ -194,8 +194,7 @@ impl AIProvider for OllamaProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::ChatMessage;
-    use super::ChatMessage;
+    use crate::providers::ChatMessage;
 
     #[tokio::test]
     async fn test_convert_request() {
