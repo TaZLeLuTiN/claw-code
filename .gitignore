@@ -15,6 +15,7 @@ archive/
 
 # Knowledge accumulator pending (le validé est versionné)
 knowledge/KNOWLEDGE_PENDING.jsonl
+**/knowledge/KNOWLEDGE_PENDING.jsonl
 
 # Secrets
 .env
