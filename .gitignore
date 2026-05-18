@@ -5,3 +5,20 @@ archive/
 # Claude Code local artifacts
 .claude/settings.local.json
 .claude/sessions/
+
+# Harnais runtime
+.harnais/error_log.jsonl
+.harnais/status.json
+.harnais/skip_log.jsonl
+.harnais/cb.pid
+.harnais/cb.log
+
+# Knowledge accumulator pending (le validé est versionné)
+knowledge/KNOWLEDGE_PENDING.jsonl
+
+# Secrets
+.env
+.env.local
+.env.test
+.env.production
+.DS_Store

@@ -1,0 +1,83 @@
+# .harnais.toml — projet system (Harnais v13.0.0)
+
+[harnais]
+version      = "13.0.0"
+project_name = "claw-code"
+project_type = "system"
+
+[languages]
+python     = true
+rust       = true
+cpp        = false
+typescript = false
+
+[hook]
+small_threshold  = 2
+medium_threshold = 20
+
+[gates]
+gitleaks         = true
+cargo_audit      = true
+pip_audit        = true
+sbom             = false
+tdd_check        = true
+bdd              = true
+atdd             = false
+gitnexus         = true
+mutation_testing = true
+formal_verify    = false
+
+[tdd]
+strict         = false
+coverage_min   = 0
+feature_dir    = "tests/features"
+steps_dir      = "tests/steps"
+acceptance_dir = "tests/acceptance"
+criteria_file  = "specs/acceptance/acceptance_criteria.md"
+
+[reflexive]
+enabled                  = true
+trigger_on_push          = true
+auto_update_claude_md    = true
+suggest_only             = true
+bypass_alert_threshold   = 5
+tdd_drift_threshold      = 0.30
+mutation_drift_threshold = 0.10
+
+[ia]
+ollama_url          = "http://localhost:11434"
+ollama_timeout      = 120
+query_model         = "gemma3:4b"
+retrospective_model = "gemma3:12b"
+fallback_model      = "gemma3:4b"
+context_window      = 65536
+
+[gitnexus]
+threshold = 10
+exclude   = ["target/", "node_modules/", ".git/"]
+
+[context]
+always_load = ["CLAUDE.md", "docs/HANDOFF_CURRENT.md"]
+lazy_load = { architecture = "docs/SYMPHONY_MASTER_ARCHITECTURE.md", memory = "docs/SYMPHONY_MEMORY_ARCHITECTURE.md", graphrag = "docs/SYMPHONY_GRAPHRAG_PRD.md", iam = "docs/symphony/PRD_IAM_SYMPHONY.md", cb = "docs/PRD_CONTEXT_BROKER_HARNAIS_V13.md", ka = "docs/PRD_KNOWLEDGE_ACCUMULATOR.md" }
+never_auto_load = ["docs/DONE/", "CHANGELOG_COMPLET.md"]
+
+[architecture]
+master_doc         = "docs/SYMPHONY_MASTER_ARCHITECTURE.md"
+read_before_start  = true
+enforce_interfaces = true
+core_modules = [
+    "src/iam/",
+    "src/ethics/",
+    "src/memory_zone/",
+    "src/graphrag/",
+    "src/llm/",
+    "src/quality/",
+]
+domain_modules = [
+    "src/modules/edu/",
+    "src/modules/trading/",
+    "src/modules/uat/",
+    "src/modules/morning_brief/",
+]
+
+[skip]
