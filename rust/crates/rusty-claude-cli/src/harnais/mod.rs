@@ -1,5 +1,6 @@
 pub mod cli;
 pub mod commands;
+pub mod config;
 
 use clap::Parser;
 use cli::Cli;

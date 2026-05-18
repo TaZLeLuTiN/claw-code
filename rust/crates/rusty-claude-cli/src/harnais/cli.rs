@@ -92,7 +92,7 @@ pub struct ReflectArgs {
     pub ollama: bool,
 }
 
-#[derive(Args)]
+#[derive(Args, Clone, Copy)]
 pub struct InstallHooksArgs {
     /// Force overwrite existing hooks
     #[arg(long)]
