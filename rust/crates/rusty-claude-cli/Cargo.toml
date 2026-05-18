@@ -10,6 +10,8 @@ name = "claw"
 path = "src/main.rs"
 
 [dependencies]
+clap = { version = "4", features = ["derive"] }
+harnais-ffi = { path = "../../ffi" }
 api = { path = "../api" }
 commands = { path = "../commands" }
 compat-harness = { path = "../compat-harness" }

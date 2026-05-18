@@ -6,6 +6,7 @@
     clippy::unnecessary_wraps,
     clippy::unused_self
 )]
+mod harnais;
 mod init;
 mod input;
 mod render;
@@ -155,7 +156,13 @@ fn merge_prompt_with_stdin(prompt: &str, stdin_content: Option<&str>) -> String 
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().skip(1).collect();
+    let raw: Vec<String> = env::args().collect();
+    if let Some(first) = raw.get(1) {
+        if harnais::is_harnais_command(first) {
+            return harnais::dispatch(raw);
+        }
+    }
+    let args: Vec<String> = raw.into_iter().skip(1).collect();
     match parse_args(&args)? {
         CliAction::DumpManifests { output_format } => dump_manifests(output_format)?,
         CliAction::BootstrapPlan { output_format } => print_bootstrap_plan(output_format)?,

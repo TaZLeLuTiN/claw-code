@@ -2020,9 +2020,11 @@ name = "rusty-claude-cli"
 version = "0.1.0"
 dependencies = [
  "api",
+ "clap",
  "commands",
  "compat-harness",
  "crossterm 0.28.1",
+ "harnais-ffi",
  "mock-anthropic-service",
  "plugins",
  "pulldown-cmark",
