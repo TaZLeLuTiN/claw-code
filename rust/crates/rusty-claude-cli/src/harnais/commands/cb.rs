@@ -2,22 +2,22 @@
 use crate::harnais::cli::{CbArgs, CbCommand};
 use crate::harnais::config;
 
+type BoxError = Box<dyn std::error::Error>;
+
+fn ffi_err(e: impl std::fmt::Display) -> BoxError {
+    format!("FFI error: {e}").into()
+}
+
 #[allow(clippy::needless_pass_by_value)]
-pub fn handle(args: CbArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn handle(args: CbArgs) -> Result<(), BoxError> {
     match args.command {
         CbCommand::Start => handle_start(),
         CbCommand::Stop => handle_stop(),
         CbCommand::Status => handle_status(),
-        CbCommand::Ingest(_) => {
-            Err(Box::from("cb ingest: not yet implemented (VIA_FFI — Étape 3.3)"))
-        }
-        CbCommand::Query(_) => {
-            Err(Box::from("cb query: not yet implemented (VIA_FFI — Étape 3.3)"))
-        }
-        CbCommand::Handoff(_) => {
-            Err(Box::from("cb handoff: not yet implemented (VIA_FFI — Étape 3.3)"))
-        }
-        CbCommand::Purge(a) => handle_purge(&a.project, a.yes),
+        CbCommand::Ingest(a) => handle_ingest(a.project, a.content, a.category),
+        CbCommand::Query(a) => handle_query(a.project, a.days, a.category),
+        CbCommand::Handoff(a) => handle_handoff(a.project),
+        CbCommand::Purge(a) => handle_purge(a.project, a.yes),
     }
 }
 
@@ -43,7 +43,7 @@ fn is_running(pid: u32) -> bool {
         .is_ok_and(|s| s.success())
 }
 
-fn handle_start() -> Result<(), Box<dyn std::error::Error>> {
+fn handle_start() -> Result<(), BoxError> {
     if let Some(pid) = read_pid() {
         if is_running(pid) {
             println!("Context Broker already running (pid {pid})");
@@ -84,7 +84,7 @@ fn handle_start() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn handle_stop() -> Result<(), Box<dyn std::error::Error>> {
+fn handle_stop() -> Result<(), BoxError> {
     let Some(pid) = read_pid() else {
         println!("Context Broker is not running (no pid file)");
         return Ok(());
@@ -109,7 +109,7 @@ fn handle_stop() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn handle_status() -> Result<(), Box<dyn std::error::Error>> {
+fn handle_status() -> Result<(), BoxError> {
     match read_pid() {
         Some(pid) if is_running(pid) => println!("Context Broker: running (pid {pid})"),
         Some(pid) => println!("Context Broker: not running (stale pid {pid})"),
@@ -125,19 +125,91 @@ fn handle_status() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// [SECTION:0003_purge]
+// [SECTION:0003_via_ffi]
 
-fn handle_purge(project: &str, yes: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn handle_ingest(
+    project: String,
+    content: Option<String>,
+    category: String,
+) -> Result<(), BoxError> {
+    use std::io::Read;
+    let text = if let Some(c) = content {
+        c
+    } else {
+        let mut s = String::new();
+        std::io::stdin().read_to_string(&mut s)?;
+        s.trim().to_string()
+    };
+
+    if text.is_empty() {
+        return Err("No content provided (pass text as argument or via stdin)".into());
+    }
+
+    harnais_ffi::runtime::init_python_runtime().map_err(ffi_err)?;
+    let result =
+        harnais_ffi::context_broker::ingest_internal(project, text, category).map_err(ffi_err)?;
+
+    println!(
+        "Ingested: action={}, chunk_id={}",
+        result.action,
+        result.chunk_id.as_deref().unwrap_or("none")
+    );
+    if !result.reason.is_empty() {
+        println!("  Reason: {}", result.reason);
+    }
+    Ok(())
+}
+
+#[allow(clippy::needless_pass_by_value)]
+fn handle_query(project: String, days: i64, category: Option<String>) -> Result<(), BoxError> {
+    harnais_ffi::runtime::init_python_runtime().map_err(ffi_err)?;
+    let chunks = harnais_ffi::context_broker::get_recent_internal(
+        project.clone(),
+        days,
+        category.map(|c| vec![c]),
+    )
+    .map_err(ffi_err)?;
+
+    println!("{} chunk(s) for '{}' (last {days} day(s)):", chunks.len(), project);
+    for chunk in &chunks {
+        let preview: String = chunk.content.chars().take(80).collect();
+        let ellipsis = if chunk.content.len() > 80 { "…" } else { "" };
+        println!(
+            "  [{}] {} (heat={:.2})  {}{}",
+            chunk.category, chunk.id, chunk.heat_score, preview, ellipsis
+        );
+    }
+    Ok(())
+}
+
+#[allow(clippy::needless_pass_by_value)]
+fn handle_handoff(project: String) -> Result<(), BoxError> {
+    harnais_ffi::runtime::init_python_runtime().map_err(ffi_err)?;
+    let chunks =
+        harnais_ffi::context_broker::get_recent_internal(project.clone(), 7, None)
+            .map_err(ffi_err)?;
+
+    println!("=== Handoff — project: {project} ===");
+    println!("Recent context ({} chunk(s), last 7 days):\n", chunks.len());
+    for chunk in &chunks {
+        println!("[{}] {}", chunk.category, chunk.content);
+        println!();
+    }
+    Ok(())
+}
+
+// [SECTION:0004_purge]
+
+#[allow(clippy::needless_pass_by_value)]
+fn handle_purge(project: String, yes: bool) -> Result<(), BoxError> {
     if !yes {
         println!("This will purge all Context Broker data for project '{project}'.");
         println!("Re-run with --yes to confirm.");
         return Ok(());
     }
 
-    // PURE_RUST: remove in-memory/file-backed CB data only
-    // Full DB purge requires VIA_FFI (Étape 3.3)
     let root = config::find_config_root().ok_or("No .harnais.toml found")?;
-    let cb_dir = root.join(".harnais").join("cb_data").join(project);
+    let cb_dir = root.join(".harnais").join("cb_data").join(&project);
     if cb_dir.exists() {
         std::fs::remove_dir_all(&cb_dir)?;
         println!("Purged CB data for project '{project}': {}", cb_dir.display());

@@ -5,16 +5,20 @@ use crate::harnais::cli::{
 use crate::harnais::config;
 use std::io::{BufRead, Write as IoWrite};
 
+type BoxError = Box<dyn std::error::Error>;
+
+fn ffi_err(e: impl std::fmt::Display) -> BoxError {
+    format!("FFI error: {e}").into()
+}
+
 // [SECTION:0002_init]
 
-pub fn handle_init(args: InitArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn handle_init(args: InitArgs) -> Result<(), BoxError> {
     let cwd = std::env::current_dir()?;
     let config_path = cwd.join(".harnais.toml");
 
     if config_path.exists() && !args.force {
-        return Err(Box::from(
-            ".harnais.toml already exists; use --force to reinitialize",
-        ));
+        return Err("`.harnais.toml` already exists; use --force to reinitialize".into());
     }
 
     let project_name = args.project.unwrap_or_else(|| {
@@ -55,12 +59,10 @@ tdd_check   = true
 
 // [SECTION:0003_upgrade]
 
-pub fn handle_upgrade() -> Result<(), Box<dyn std::error::Error>> {
+pub fn handle_upgrade() -> Result<(), BoxError> {
     let root = config::find_config_root()
         .ok_or("No .harnais.toml found — run `claw init` first")?;
     let config_path = root.join(".harnais.toml");
-
-    let content = std::fs::read_to_string(&config_path)?;
     let current = config::load_config()?;
 
     if current.harnais.version.starts_with("14.") {
@@ -68,21 +70,19 @@ pub fn handle_upgrade() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    let content = std::fs::read_to_string(&config_path)?;
     let updated = content.replace(
         &format!(r#"version      = "{}""#, current.harnais.version),
         r#"version      = "14.0.0""#,
     );
     std::fs::write(&config_path, updated)?;
-    println!(
-        "Upgraded {} → 14.0.0",
-        current.harnais.version
-    );
+    println!("Upgraded {} → 14.0.0", current.harnais.version);
     Ok(())
 }
 
 // [SECTION:0004_status]
 
-pub fn handle_status() -> Result<(), Box<dyn std::error::Error>> {
+pub fn handle_status() -> Result<(), BoxError> {
     let cfg = config::load_config()?;
     println!("Project  : {}", cfg.harnais.project_name);
     println!("Version  : {}", cfg.harnais.version);
@@ -136,11 +136,9 @@ pub fn handle_status() -> Result<(), Box<dyn std::error::Error>> {
 // [SECTION:0005_test]
 
 #[allow(clippy::needless_pass_by_value)]
-pub fn handle_test(args: TestArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn handle_test(args: TestArgs) -> Result<(), BoxError> {
     let cfg = config::load_config()?;
-    let root = config::find_config_root()
-        .ok_or("No .harnais.toml found")?;
-
+    let root = config::find_config_root().ok_or("No .harnais.toml found")?;
     let mut ran = false;
 
     if cfg.languages.rust {
@@ -152,9 +150,8 @@ pub fn handle_test(args: TestArgs) -> Result<(), Box<dyn std::error::Error>> {
         if args.verbose {
             cmd.arg("--").arg("--nocapture");
         }
-        let status = cmd.status()?;
-        if !status.success() {
-            return Err(Box::from("cargo test failed"));
+        if !cmd.status()?.success() {
+            return Err("cargo test failed".into());
         }
         ran = true;
     }
@@ -168,9 +165,8 @@ pub fn handle_test(args: TestArgs) -> Result<(), Box<dyn std::error::Error>> {
         if args.verbose {
             cmd.arg("-v");
         }
-        let status = cmd.status()?;
-        if !status.success() {
-            return Err(Box::from("pytest failed"));
+        if !cmd.status()?.success() {
+            return Err("pytest failed".into());
         }
         ran = true;
     }
@@ -184,7 +180,7 @@ pub fn handle_test(args: TestArgs) -> Result<(), Box<dyn std::error::Error>> {
 // [SECTION:0006_skip_log]
 
 #[allow(clippy::needless_pass_by_value)]
-pub fn handle_why(args: WhyArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn handle_why(args: WhyArgs) -> Result<(), BoxError> {
     let runtime = config::harnais_runtime_dir()
         .ok_or("No .harnais.toml found — run `claw init` first")?;
     let skip_log = runtime.join("skip_log.jsonl");
@@ -228,7 +224,7 @@ pub fn handle_why(args: WhyArgs) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[allow(clippy::needless_pass_by_value)]
-pub fn handle_skip(args: SkipArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn handle_skip(args: SkipArgs) -> Result<(), BoxError> {
     let runtime = config::harnais_runtime_dir()
         .ok_or("No .harnais.toml found — run `claw init` first")?;
     std::fs::create_dir_all(&runtime)?;
@@ -255,13 +251,13 @@ pub fn handle_skip(args: SkipArgs) -> Result<(), Box<dyn std::error::Error>> {
 
 // [SECTION:0007_install_hooks]
 
-pub fn handle_install_hooks(args: InstallHooksArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn handle_install_hooks(args: InstallHooksArgs) -> Result<(), BoxError> {
     let root = config::find_config_root()
         .ok_or("No .harnais.toml found — run `claw init` first")?;
     let hooks_dir = root.join(".git").join("hooks");
 
     if !hooks_dir.exists() {
-        return Err(Box::from("No .git/hooks/ directory found — is this a git repository?"));
+        return Err("No .git/hooks/ directory found — is this a git repository?".into());
     }
 
     let harnais_home = std::env::var("HARNAIS_HOME").unwrap_or_else(|_| {
@@ -277,20 +273,17 @@ pub fn handle_install_hooks(args: InstallHooksArgs) -> Result<(), Box<dyn std::e
     let dest = hooks_dir.join("pre-commit");
 
     if dest.exists() && !args.force {
-        return Err(Box::from(
-            ".git/hooks/pre-commit already exists; use --force to overwrite",
-        ));
+        return Err(
+            ".git/hooks/pre-commit already exists; use --force to overwrite".into(),
+        );
     }
 
     if template_src.exists() {
         std::fs::copy(&template_src, &dest)?;
     } else {
-        // Generate a minimal fallback hook
-        let minimal = "#!/usr/bin/env bash\nset -eu\nclaw test\n";
-        std::fs::write(&dest, minimal)?;
+        std::fs::write(&dest, "#!/usr/bin/env bash\nset -eu\nclaw test\n")?;
     }
 
-    // Make executable
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -303,8 +296,25 @@ pub fn handle_install_hooks(args: InstallHooksArgs) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
-// [SECTION:0008_reflect_stub]
+// [SECTION:0008_reflect_via_ffi]
 
-pub fn handle_reflect(_args: ReflectArgs) -> Result<(), Box<dyn std::error::Error>> {
-    Err(Box::from("harnais reflect: not yet implemented (VIA_FFI — Étape 3.3)"))
+#[allow(clippy::needless_pass_by_value)]
+pub fn handle_reflect(args: ReflectArgs) -> Result<(), BoxError> {
+    let cfg = config::load_config()?;
+    let project = args.project.unwrap_or(cfg.harnais.project_name);
+    let milestone = args.milestone.unwrap_or_default();
+
+    harnais_ffi::runtime::init_python_runtime().map_err(ffi_err)?;
+    let result =
+        harnais_ffi::retrospective::generate_internal(project, milestone, args.days, args.ollama)
+            .map_err(ffi_err)?;
+
+    println!("Retrospective: {}", result.project);
+    println!("  Milestone    : {}", result.milestone);
+    println!("  Period       : {} day(s)", result.period_days);
+    println!("  Chunks       : {}", result.total_chunks_analyzed);
+    println!("  Insights     : {}", result.insights_proposed);
+    println!("  Pending total: {}", result.pending_total);
+    println!("  Ollama used  : {}", result.ollama_used);
+    Ok(())
 }

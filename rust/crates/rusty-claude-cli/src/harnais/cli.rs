@@ -130,8 +130,8 @@ pub struct CbIngestArgs {
     /// Project name
     #[arg(short, long)]
     pub project: String,
-    /// Content category
-    #[arg(short, long, default_value = "general")]
+    /// Content category (`architecture|constraint|config|validation|harnais|handoff|known_fix|interface`)
+    #[arg(short, long, default_value = "harnais")]
     pub category: String,
     /// Text content (reads from stdin if omitted)
     #[arg(value_name = "CONTENT")]

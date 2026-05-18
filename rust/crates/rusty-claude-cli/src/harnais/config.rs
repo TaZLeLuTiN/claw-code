@@ -13,6 +13,8 @@ pub struct HarnaisConfig {
     pub architecture: ArchitectureSection,
     #[serde(default)]
     pub ia: IaSection,
+    #[serde(default)]
+    pub context: ContextSection,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -73,6 +75,14 @@ pub struct IaSection {
     pub query_model: String,
     #[serde(default = "default_retro_model")]
     pub retrospective_model: String,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct ContextSection {
+    #[serde(default)]
+    pub always_load: Vec<String>,
+    #[serde(default)]
+    pub never_auto_load: Vec<String>,
 }
 
 fn default_true() -> bool {

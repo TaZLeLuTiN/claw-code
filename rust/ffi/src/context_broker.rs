@@ -133,6 +133,30 @@ pub fn cb_get_recent(
 
 // [SECTION:0005_rust_api]
 
+/// Rust-internal `ingest_chunk` returning a typed `IngestResult`.
+pub fn ingest_internal(
+    project: String,
+    content: String,
+    category: String,
+) -> PyResult<IngestResult> {
+    Python::with_gil(|py| {
+        let py_result = cb_ingest_chunk(project, content, category)?;
+        let d = py_result.bind(py);
+        let chunk_id_obj = d.getattr("chunk_id")?;
+        let chunk_id = if chunk_id_obj.is_none() {
+            None
+        } else {
+            Some(chunk_id_obj.str()?.to_str()?.to_owned())
+        };
+        Ok(IngestResult {
+            action: d.getattr("action")?.extract()?,
+            chunk_id,
+            reason: d.getattr("reason")?.extract()?,
+            fingerprint: d.getattr("fingerprint")?.extract()?,
+        })
+    })
+}
+
 fn extract_chunk_row(row: &Bound<'_, PyAny>) -> PyResult<Chunk> {
     Ok(Chunk {
         id: row.getattr("id")?.str()?.to_str()?.to_owned(),
