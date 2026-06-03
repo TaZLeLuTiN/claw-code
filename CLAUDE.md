@@ -19,3 +19,44 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Prefer small, reviewable changes and keep generated bootstrap files aligned with actual repo workflows.
 - Keep shared defaults in `.claude.json`; reserve `.claude/settings.local.json` for machine-local overrides.
 - Do not overwrite existing `CLAUDE.md` content automatically; update it intentionally when repo workflows change.
+
+## Setup paths — environnement Mike (macOS)
+
+- Repo cloné     : `~/Documents/GitHub/claw-code/`
+- Source harnais : `~/Documents/GitHub/harnais/` (Python v13, scope v14.0)
+- Scope canonique v14.0 : `harnais/docs/v14_status/v14.0_SCOPE.md`
+
+## Sessions
+
+### Session 2026-06-03 — Merge Phase B (sub-PRD #1 Fusion)
+
+#### Fait
+- Vérification branche `feature/v14-pyo3-foundation` :
+  - `cargo fmt --check` : OK
+  - `harnais-ffi clippy (-D warnings)` : OK — 0 erreur dans le code Phase B
+  - `cargo test --workspace` : 1 test pré-existant cassé (api crate, commit 5bcbc86)
+    Phase B n'a pas touché crate api — régression antérieure documentée
+- Merge `--no-ff` exécuté sur main local : `05efc4b`
+  - 7 commits Phase B + 1 merge commit
+  - Zéro conflit
+- Tag annoté posé : `v14-fusion-complete`
+- Sub-PRD #1 Fusion : **COMPLETE** (Phase B finalisée)
+
+#### Issues quarantinées (pré-existantes, deadline à respecter)
+- `api/client_integration::send_message_blocks_oversized_requests_before_the_http_call`
+  → deadline **2026-06-30**
+- 46 clippy errors dans `crates/runtime/`
+  → deadline **2026-07-15**
+
+#### En cours
+- Push à effectuer manuellement par Mike :
+  `git push origin main && git push origin v14-fusion-complete`
+- Décision Mike sur conservation/suppression de `feature/v14-pyo3-foundation`
+  (locale et distante)
+
+#### Prochaine action
+- Côté harnais : marquer `#1 Fusion` comme COMPLETE dans `docs/v14_status/v14.0_SCOPE.md`
+- Démarrer sub-PRD #2 Standalone (SQLite CB fallback — indépendant, ~6j)
+
+#### Blocages
+- Aucun
