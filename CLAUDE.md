@@ -60,3 +60,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 #### Blocages
 - Aucun
+
+---
+
+## Politiques qualité (référence harnais)
+
+Ce projet applique les politiques qualité définies dans le repo harnais.
+Avant toute modification de tests, lire :
+
+- `~/Documents/GitHub/harnais/docs/policies/QUALITY_POLICY_v1.md`
+- `~/Documents/GitHub/harnais/docs/policies/TEST_TYPOLOGIES_v1.md`
+- `~/Documents/GitHub/harnais/docs/policies/SKIP_AND_FLAKY_POLICY_v1.md`
+
+Vérification rapide : `~/Documents/GitHub/harnais/bin/policy-check.sh`
+
+### Règles critiques
+
+- Un test rouge est un bug. Pas de "skip parce que ça ne passe pas".
+- Skip légitime **UNIQUEMENT** pour : environnement / dépendance / plateforme.
+- Tests flaky → **quarantine OBLIGATOIRE** avec deadline (≤ 30j) + issue tracker.
+- Pas de quarantine sans deadline.
+
+### Issues en quarantaine (décidées session 2026-06-03)
+
+| Test | Deadline | Issue |
+|---|---|---|
+| `api/client_integration::send_message_blocks_oversized_requests_before_the_http_call` | 2026-06-30 | À créer |
+| 46 clippy errors dans `crates/runtime/` | 2026-07-15 | À créer |
