@@ -1,0 +1,26 @@
+[package]
+name = "harnais-ffi"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "harnais_ffi"
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.21", features = ["auto-initialize", "abi3-py311"] }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+# Exception locale à workspace.unsafe_code = "forbid" (D1.4)
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+missing_panics_doc = "allow"
+missing_errors_doc = "allow"
