@@ -55,9 +55,9 @@ pub async fn ollama_generate(
             // If classifier selected Claude, ollama_generate must still call Ollama
             if classification.provider == crate::classifier::Provider::Claude {
                 tracing::warn!(
-                    "Classifier selected Claude for ollama_generate — using gemma3:4b as fallback"
+                    "Classifier selected Claude for ollama_generate — using gemma4:31b as fallback"
                 );
-                "gemma3:4b".to_string()
+                "gemma4:31b".to_string()
             } else {
                 classification.model
             }
