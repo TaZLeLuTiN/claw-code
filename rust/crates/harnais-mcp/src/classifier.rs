@@ -281,3 +281,33 @@ pub fn classify(prompt: &str, context_files: &[String]) -> ClassificationResult 
         reasons,
     }
 }
+
+/// Select the optimal Ollama model based on task type and target file types.
+///
+/// Routing rules (D-PLAN-6, updated 2026-06-04):
+///   Python implementation → qwen2.5:32b-instruct-q6_K
+///   Rust implementation   → gemma4:31b
+///   Boilerplate/Tests/Distillation → gemma3:4b
+///   Code/algo             → qwen2.5:32b-instruct-q6_K
+///   Default impl          → qwen2.5:32b-instruct-q6_K
+#[must_use]
+pub fn select_model(task_type: &TaskType, context_files: &[String]) -> String {
+    let has_python = context_files
+        .iter()
+        .any(|f| f.ends_with(".py") || f.ends_with("run.py") || f.ends_with("skill.py"));
+
+    let has_rust = context_files
+        .iter()
+        .any(|f| f.ends_with(".rs") || f.ends_with("Cargo.toml"));
+
+    match task_type {
+        TaskType::Boilerplate | TaskType::Tests | TaskType::Distillation => "gemma3:4b".to_string(),
+
+        TaskType::Implementation if has_rust && !has_python => "gemma4:31b".to_string(),
+
+        TaskType::Implementation | TaskType::CodeAlgo => "qwen2.5:32b-instruct-q6_K".to_string(),
+
+        // Architecture/Design/Review/Unknown → Claude (handled upstream)
+        _ => "claude-sonnet-4-6".to_string(),
+    }
+}

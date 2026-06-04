@@ -32,18 +32,24 @@ pub async fn ollama_generate(
 
     let model = {
         let requested_model = args.get("model").and_then(|v| v.as_str()).unwrap_or("auto");
-        let task_type_arg = args.get("task_type").and_then(|v| v.as_str()).unwrap_or("auto");
+        let task_type_arg = args
+            .get("task_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("auto");
 
         if requested_model != "auto" {
             requested_model.to_string()
         } else if task_type_arg != "auto" {
-            // Map task_type → Ollama model per D-PLAN-6
-            match task_type_arg {
-                "implementation" => "gemma4:31b".to_string(),
-                "boilerplate" | "tests" | "distillation" => "gemma3:4b".to_string(),
-                "code_algo" => "qwen2.5:32b-instruct-q6_K".to_string(),
-                _ => "gemma3:4b".to_string(),
-            }
+            // Map task_type string → TaskType, then use select_model for file-aware routing
+            let task_type = match task_type_arg {
+                "implementation" => crate::classifier::TaskType::Implementation,
+                "boilerplate" => crate::classifier::TaskType::Boilerplate,
+                "tests" => crate::classifier::TaskType::Tests,
+                "distillation" => crate::classifier::TaskType::Distillation,
+                "code_algo" => crate::classifier::TaskType::CodeAlgo,
+                _ => crate::classifier::TaskType::Boilerplate,
+            };
+            crate::classifier::select_model(&task_type, &context_files)
         } else {
             let classification = classify(&prompt, &context_files);
             tracing::info!(
@@ -59,7 +65,7 @@ pub async fn ollama_generate(
                 );
                 "gemma4:31b".to_string()
             } else {
-                classification.model
+                crate::classifier::select_model(&classification.task_type, &context_files)
             }
         }
     };
@@ -116,7 +122,10 @@ pub fn ollama_route(id: Option<Value>, args: Value) -> JsonRpcResponse {
         })
         .unwrap_or_default();
 
-    let result = classify(prompt, &context_files);
+    let mut result = classify(prompt, &context_files);
+    if result.provider == crate::classifier::Provider::Ollama {
+        result.model = crate::classifier::select_model(&result.task_type, &context_files);
+    }
 
     JsonRpcResponse::ok(
         id,
@@ -127,6 +136,42 @@ pub fn ollama_route(id: Option<Value>, args: Value) -> JsonRpcResponse {
             }]
         }),
     )
+}
+
+/// Compute a dynamic HTTP timeout based on model speed and prompt length.
+///
+/// Formula: (input_tokens + expected_output_tokens) / tokens_per_second * safety_factor
+///
+/// Estimated tokens/sec on Apple M-series (empirical, conservative):
+///   gemma3:4b=60, gemma3:12b=25, gemma4:26b=15, gemma4:31b=12,
+///   qwen2.5:14b=18, qwen2.5:32b=8, 70b=4, default=15
+pub fn compute_timeout(model: &str, prompt: &str) -> std::time::Duration {
+    let tokens_per_sec: f64 = if model.contains("3:4b") {
+        60.0
+    } else if model.contains("3:12b") {
+        25.0
+    } else if model.contains("4:26b") {
+        15.0
+    } else if model.contains("4:31b") {
+        12.0
+    } else if model.contains("qwen2.5:14") {
+        18.0
+    } else if model.contains("qwen2.5:32") {
+        8.0
+    } else if model.contains("70b") {
+        4.0
+    } else {
+        15.0
+    };
+
+    let input_tokens = (prompt.len() / 4) as f64;
+    let expected_output_tokens: f64 = 600.0;
+    let safety_factor: f64 = 2.5;
+
+    let raw_secs =
+        ((input_tokens + expected_output_tokens) / tokens_per_sec * safety_factor) as u64;
+
+    std::time::Duration::from_secs(raw_secs.clamp(30, 600))
 }
 
 async fn call_ollama(host: &str, model: &str, prompt: &str) -> Result<String> {
@@ -157,10 +202,18 @@ async fn call_ollama_raw(host: &str, model: &str, prompt: &str) -> Result<String
         "stream": false
     });
 
+    let timeout = compute_timeout(model, prompt);
+    tracing::debug!(
+        model,
+        prompt_len = prompt.len(),
+        timeout_secs = timeout.as_secs(),
+        "Dynamic timeout computed"
+    );
+
     let resp = client
         .post(&url)
         .json(&body)
-        .timeout(std::time::Duration::from_secs(120))
+        .timeout(timeout)
         .send()
         .await?;
 
