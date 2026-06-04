@@ -63,6 +63,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+### Session 2026-06-04 — Sub-PRD #8 IA Router (Lots A + B)
+
+#### Fait
+- Crate `harnais-mcp` créé : `rust/crates/harnais-mcp/`
+  - `classifier.rs` : heuristiques statiques (26 CLAUDE_KW + 4 catégories Ollama)
+  - `server.rs` : JSON-RPC 2.0 stdio, MCP protocol 2024-11-05
+  - `tools.rs` : `ollama_generate` (HTTP Ollama + audit PG) + `ollama_route` (classify only)
+  - `main.rs` : OLLAMA_HOST + PG_HARNAIS_DSN env, tracing → stderr
+  - 10/10 tests verts, clippy 0 warning
+- Commits locaux : `f77cfed` (Lot A), `0eade4c` (Lot B)
+
+#### Dispatch D-PLAN-6 actif (crate harnais-mcp)
+
+| Type | Provider | Modèle |
+|---|---|---|
+| architecture/design/review | Claude | Sonnet 4.6 |
+| implémentation | Ollama | gemma4:31b |
+| boilerplate/tests | Ollama | gemma3:4b |
+| code algorithmique | Ollama | qwen2.5:32b-instruct-q6_K |
+| context-fichier seul | Ollama | gemma3:12b |
+
+#### Notes techniques importantes
+- `tracing → stderr` : intentionnel, stdout réservé JSON-RPC. Ne pas rediriger vers /dev/null.
+- `target/debug/harnais-mcp` → `rust/target/debug/harnais-mcp` (workspace dans rust/)
+- `cargo clippy -p harnais-mcp` pour éviter les erreurs pré-existantes de runtime/
+
+#### Prochaine action
+- Push : `git push origin main` (commits f77cfed + 0eade4c)
+- Activer harnais-mcp dans Claude Code : `claude mcp list` (enregistré via harnais Lot C)
+- Tester routing réel sur un prompt boilerplate
+- Démarrer sub-PRD #3 Skills ou #4 KFs
+
+---
+
 ## Politiques qualité (référence harnais)
 
 Ce projet applique les politiques qualité définies dans le repo harnais.
