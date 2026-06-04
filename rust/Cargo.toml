@@ -4,6 +4,7 @@ members = [
     "crates/api",
     "crates/commands",
     "crates/compat-harness",
+    "crates/harnais-mcp",
     "crates/mock-anthropic-service",
     "crates/plugins",
     "crates/runtime",
