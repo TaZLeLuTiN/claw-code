@@ -112,6 +112,24 @@ pub fn ollama_route(id: Option<Value>, args: Value) -> JsonRpcResponse {
 }
 
 async fn call_ollama(host: &str, model: &str, prompt: &str) -> Result<String> {
+    match call_ollama_raw(host, model, prompt).await {
+        Ok(text) => Ok(text),
+        Err(e) if is_connect_error(&e) && host.contains("localhost") => {
+            let fallback = host.replace("localhost", "127.0.0.1");
+            tracing::warn!("Ollama unreachable via localhost (IPv6?), retrying on {fallback}");
+            call_ollama_raw(&fallback, model, prompt).await
+        }
+        Err(e) => Err(e),
+    }
+}
+
+fn is_connect_error(e: &anyhow::Error) -> bool {
+    e.downcast_ref::<reqwest::Error>()
+        .map(|re| re.is_connect())
+        .unwrap_or(false)
+}
+
+async fn call_ollama_raw(host: &str, model: &str, prompt: &str) -> Result<String> {
     let client = reqwest::Client::new();
     let url = format!("{}/api/generate", host.trim_end_matches('/'));
 
