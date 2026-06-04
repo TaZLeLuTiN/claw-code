@@ -92,8 +92,48 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 #### Prochaine action
 - Push : `git push origin main` (commits f77cfed + 0eade4c)
 - Activer harnais-mcp dans Claude Code : `claude mcp list` (enregistré via harnais Lot C)
-- Tester routing réel sur un prompt boilerplate
+- Tester routing réel sur un prompt boilerplate ✅ (session 2026-06-04 bis)
 - Démarrer sub-PRD #3 Skills ou #4 KFs
+
+---
+
+### Session 2026-06-04 bis — Retest ollama_generate
+
+#### Fait
+- `ollama_generate` retesté via MCP : réponse correcte, gemma3:4b (task_type boilerplate)
+- Routing D-PLAN-6 compris : `task_type` explicite court-circuite le classifier → mapping direct `tools.rs:43`
+- 3 commits en avance sur origin/main : `bf25331`, `a5319b7`, `7064a70`
+
+#### Prochaine action
+- Push manuel : `git push origin main`
+- Démarrer sub-PRD #3 Skills ou #4 KFs (prochaine session)
+
+---
+
+### Session 2026-06-04 ter — Patch harnais-mcp : timeout dynamique + routing Python
+
+#### Fait
+- `compute_timeout()` : timeout dynamique basé sur modèle + longueur prompt
+  - Remplace le timeout fixe 120s
+  - Formule : (input_tokens + 600) / tok_per_sec * 2.5, clampé [30s, 600s]
+  - Vitesses estimées (tok/s Apple M) : gemma3:4b=60, gemma3:12b=25, gemma4:31b=12, qwen2.5:32b=8
+- `select_model()` : routing affiné D-PLAN-7
+  - Python files → qwen2.5:32b-instruct-q6_K
+  - Rust files → gemma4:31b
+  - Boilerplate/Tests/Distillation → gemma3:4b
+  - Défaut impl → qwen2.5:32b
+  - Intégré dans `ollama_generate` (paths auto et task_type) et `ollama_route`
+- 8 nouveaux tests — 18/18 verts, clippy 0 warning
+- Templates `.harnais.toml` mis à jour (clé 'python', timeout_sec=dynamic)
+- `v14.0_SCOPE.md` : entrée D-PLAN-7 ajoutée
+- Commit claw-code : `91ee1f8`
+- Commit harnais : `564e49f`
+
+#### Prochaine action
+- Push manuel : `git push origin main` (dans les deux repos)
+- Relancer la session Skills #3 (15 skills en 3 lots)
+  → skills.py générés via qwen2.5:32b avec timeout adaptatif
+  → Lancer depuis `~/Documents/GitHub/harnais`
 
 ---
 
