@@ -31,8 +31,20 @@ pub async fn ollama_generate(
         .unwrap_or_default();
 
     let model = {
-        let requested = args.get("model").and_then(|v| v.as_str()).unwrap_or("auto");
-        if requested == "auto" {
+        let requested_model = args.get("model").and_then(|v| v.as_str()).unwrap_or("auto");
+        let task_type_arg = args.get("task_type").and_then(|v| v.as_str()).unwrap_or("auto");
+
+        if requested_model != "auto" {
+            requested_model.to_string()
+        } else if task_type_arg != "auto" {
+            // Map task_type → Ollama model per D-PLAN-6
+            match task_type_arg {
+                "implementation" => "gemma4:31b".to_string(),
+                "boilerplate" | "tests" | "distillation" => "gemma3:4b".to_string(),
+                "code_algo" => "qwen2.5:32b-instruct-q6_K".to_string(),
+                _ => "gemma3:4b".to_string(),
+            }
+        } else {
             let classification = classify(&prompt, &context_files);
             tracing::info!(
                 provider = ?classification.provider,
@@ -40,9 +52,15 @@ pub async fn ollama_generate(
                 confidence = classification.confidence,
                 "Classification result"
             );
-            classification.model
-        } else {
-            requested.to_string()
+            // If classifier selected Claude, ollama_generate must still call Ollama
+            if classification.provider == crate::classifier::Provider::Claude {
+                tracing::warn!(
+                    "Classifier selected Claude for ollama_generate — using gemma3:4b as fallback"
+                );
+                "gemma3:4b".to_string()
+            } else {
+                classification.model
+            }
         }
     };
 
