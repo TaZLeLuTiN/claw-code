@@ -37,6 +37,7 @@ pub mod sandbox;
 mod session;
 pub mod session_control;
 pub use session_control::SessionStore;
+pub mod providers;
 mod sse;
 pub mod stale_base;
 pub mod stale_branch;
@@ -48,7 +49,6 @@ pub mod team_cron_registry;
 mod trust_resolver;
 mod usage;
 pub mod worker_boot;
-pub mod providers;
 
 pub use bash::{execute_bash, BashCommandInput, BashCommandOutput};
 pub use bootstrap::{BootstrapPhase, BootstrapPlan};
@@ -56,10 +56,6 @@ pub use branch_lock::{detect_branch_lock_collisions, BranchLockCollision, Branch
 pub use compact::{
     compact_session, estimate_session_tokens, format_compact_summary,
     get_compact_continuation_message, should_compact, CompactionConfig, CompactionResult,
-};
-pub use config_validate::{
-    check_unsupported_format, format_diagnostics, validate_config_file, ConfigDiagnostic,
-    DiagnosticKind, ValidationResult,
 };
 pub use config::{
     ConfigEntry, ConfigError, ConfigLoader, ConfigSource, McpConfigCollection,
@@ -69,17 +65,21 @@ pub use config::{
     RuntimeHookConfig, RuntimePermissionRuleConfig, RuntimePluginConfig, ScopedMcpServerConfig,
     CLAW_SETTINGS_SCHEMA_NAME,
 };
+pub use config_validate::{
+    check_unsupported_format, format_diagnostics, validate_config_file, ConfigDiagnostic,
+    DiagnosticKind, ValidationResult,
+};
 pub use conversation::{
     auto_compaction_threshold_from_env, ApiClient, ApiRequest, AssistantEvent, AutoCompactionEvent,
     ConversationRuntime, PromptCacheEvent, RuntimeError, StaticToolExecutor, ToolError,
     ToolExecutor, TurnSummary,
 };
-pub use git_context::{GitCommitEntry, GitContext};
 pub use file_ops::{
     edit_file, glob_search, grep_search, read_file, write_file, EditFileOutput, GlobSearchOutput,
     GrepSearchInput, GrepSearchOutput, ReadFileOutput, StructuredPatchHunk, TextFilePayload,
     WriteFileOutput,
 };
+pub use git_context::{GitCommitEntry, GitContext};
 pub use hooks::{
     HookAbortSignal, HookEvent, HookProgressEvent, HookProgressReporter, HookRunResult, HookRunner,
 };
@@ -181,4 +181,3 @@ pub(crate) fn test_env_lock() -> std::sync::MutexGuard<'static, ()> {
 pub mod bridge;
 
 pub mod script_framework;
-

@@ -1,7 +1,5 @@
 // [SECTION:0001_imports]
-use crate::harnais::cli::{
-    InitArgs, InstallHooksArgs, ReflectArgs, SkipArgs, TestArgs, WhyArgs,
-};
+use crate::harnais::cli::{InitArgs, InstallHooksArgs, ReflectArgs, SkipArgs, TestArgs, WhyArgs};
 use crate::harnais::config;
 use std::io::{BufRead, Write as IoWrite};
 
@@ -22,8 +20,10 @@ pub fn handle_init(args: InitArgs) -> Result<(), BoxError> {
     }
 
     let project_name = args.project.unwrap_or_else(|| {
-        cwd.file_name()
-            .map_or_else(|| "unnamed".to_string(), |n| n.to_string_lossy().into_owned())
+        cwd.file_name().map_or_else(
+            || "unnamed".to_string(),
+            |n| n.to_string_lossy().into_owned(),
+        )
     });
 
     let content = format!(
@@ -60,8 +60,8 @@ tdd_check   = true
 // [SECTION:0003_upgrade]
 
 pub fn handle_upgrade() -> Result<(), BoxError> {
-    let root = config::find_config_root()
-        .ok_or("No .harnais.toml found — run `claw init` first")?;
+    let root =
+        config::find_config_root().ok_or("No .harnais.toml found — run `claw init` first")?;
     let config_path = root.join(".harnais.toml");
     let current = config::load_config()?;
 
@@ -181,8 +181,8 @@ pub fn handle_test(args: TestArgs) -> Result<(), BoxError> {
 
 #[allow(clippy::needless_pass_by_value)]
 pub fn handle_why(args: WhyArgs) -> Result<(), BoxError> {
-    let runtime = config::harnais_runtime_dir()
-        .ok_or("No .harnais.toml found — run `claw init` first")?;
+    let runtime =
+        config::harnais_runtime_dir().ok_or("No .harnais.toml found — run `claw init` first")?;
     let skip_log = runtime.join("skip_log.jsonl");
 
     if !skip_log.exists() {
@@ -225,8 +225,8 @@ pub fn handle_why(args: WhyArgs) -> Result<(), BoxError> {
 
 #[allow(clippy::needless_pass_by_value)]
 pub fn handle_skip(args: SkipArgs) -> Result<(), BoxError> {
-    let runtime = config::harnais_runtime_dir()
-        .ok_or("No .harnais.toml found — run `claw init` first")?;
+    let runtime =
+        config::harnais_runtime_dir().ok_or("No .harnais.toml found — run `claw init` first")?;
     std::fs::create_dir_all(&runtime)?;
     let skip_log = runtime.join("skip_log.jsonl");
 
@@ -252,8 +252,8 @@ pub fn handle_skip(args: SkipArgs) -> Result<(), BoxError> {
 // [SECTION:0007_install_hooks]
 
 pub fn handle_install_hooks(args: InstallHooksArgs) -> Result<(), BoxError> {
-    let root = config::find_config_root()
-        .ok_or("No .harnais.toml found — run `claw init` first")?;
+    let root =
+        config::find_config_root().ok_or("No .harnais.toml found — run `claw init` first")?;
     let hooks_dir = root.join(".git").join("hooks");
 
     if !hooks_dir.exists() {
@@ -273,9 +273,7 @@ pub fn handle_install_hooks(args: InstallHooksArgs) -> Result<(), BoxError> {
     let dest = hooks_dir.join("pre-commit");
 
     if dest.exists() && !args.force {
-        return Err(
-            ".git/hooks/pre-commit already exists; use --force to overwrite".into(),
-        );
+        return Err(".git/hooks/pre-commit already exists; use --force to overwrite".into());
     }
 
     if template_src.exists() {

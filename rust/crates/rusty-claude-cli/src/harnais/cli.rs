@@ -2,7 +2,11 @@
 use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "claw", version, about = "Harnais v14 — AI-assisted development runtime")]
+#[command(
+    name = "claw",
+    version,
+    about = "Harnais v14 — AI-assisted development runtime"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,

@@ -75,20 +75,23 @@ pub enum ProviderError {
 #[async_trait]
 pub trait AIProvider {
     /// Send a chat completion request
-    async fn chat_completion(&mut self, request: ChatRequest) -> Result<ChatResponse, ProviderError>;
-    
+    async fn chat_completion(
+        &mut self,
+        request: ChatRequest,
+    ) -> Result<ChatResponse, ProviderError>;
+
     /// Check if provider supports tools
     fn supports_tools(&self) -> bool;
-    
+
     /// Get maximum tokens for this provider/model
     fn max_tokens(&self) -> usize;
-    
+
     /// Get model name
     fn model_name(&self) -> &str;
-    
+
     /// Get provider name
     fn provider_name(&self) -> &str;
-    
+
     /// Check if provider is available
     async fn health_check(&self) -> Result<(), ProviderError>;
 }
@@ -99,7 +102,10 @@ pub fn create_provider(config: ProviderConfig) -> Result<Box<dyn AIProvider>, Pr
         "anthropic" => Ok(Box::new(anthropic::AnthropicProvider::new(config)?)),
         "deepseek" => Ok(Box::new(deepseek::DeepSeekProvider::new(config)?)),
         "ollama" => Ok(Box::new(ollama::OllamaProvider::new(config)?)),
-        _ => Err(ProviderError::InvalidModel(format!("Unsupported provider: {}", config.provider_type)))
+        _ => Err(ProviderError::InvalidModel(format!(
+            "Unsupported provider: {}",
+            config.provider_type
+        ))),
     }
 }
 
@@ -119,7 +125,6 @@ pub mod anthropic;
 pub mod deepseek;
 pub mod ollama;
 
-
 impl From<std::io::Error> for ProviderError {
     fn from(error: std::io::Error) -> Self {
         ProviderError::Io(error.to_string())
@@ -131,4 +136,3 @@ impl From<serde_json::Error> for ProviderError {
         ProviderError::Api(error.to_string())
     }
 }
-

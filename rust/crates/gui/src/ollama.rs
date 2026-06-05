@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use anyhow::Result;
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OllamaRequest {
@@ -36,22 +36,29 @@ impl OllamaService {
         };
 
         println!("🤖 Request to Ollama: {} - {}", model, prompt);
-        
+
         // D'abord récupérez le texte brut pour debug
-        let response_text = self.client
+        let response_text = self
+            .client
             .post(&format!("{}/api/generate", self.base_url))
             .json(&request)
             .send()
             .await?
             .text()
             .await?;
-        
+
         println!("📥 Raw response: {}", response_text);
-        
+
         // Essayez de parser le JSON
-        let ollama_response: OllamaResponse = serde_json::from_str(&response_text)
-            .map_err(|e| anyhow::anyhow!("Failed to parse Ollama response: {} - Raw: {}", e, response_text))?;
-        
+        let ollama_response: OllamaResponse =
+            serde_json::from_str(&response_text).map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to parse Ollama response: {} - Raw: {}",
+                    e,
+                    response_text
+                )
+            })?;
+
         Ok(ollama_response.response)
     }
 
@@ -66,7 +73,8 @@ impl OllamaService {
             name: String,
         }
 
-        let response = self.client
+        let response = self
+            .client
             .get(&format!("{}/api/tags", self.base_url))
             .send()
             .await?

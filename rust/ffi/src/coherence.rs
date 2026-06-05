@@ -15,9 +15,7 @@ pub(crate) fn get_or_init_mdl_engine(py: Python<'_>) -> PyResult<Bound<'_, PyAny
     let _ = MDL_ENGINE.set(instance.clone().unbind());
     Ok(MDL_ENGINE
         .get()
-        .ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("MDL engine init race")
-        })?
+        .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("MDL engine init race"))?
         .bind(py)
         .clone())
 }
@@ -37,6 +35,8 @@ pub fn mdl_score(vec1: Vec<f32>, vec2: Vec<f32>) -> PyResult<f32> {
         let arr1 = np.call_method1("array", (vec1,))?;
         let arr2 = np.call_method1("array", (vec2,))?;
         let neighbors = vec![arr2.unbind()];
-        engine.call_method1("mdl_score", (arr1.unbind(), neighbors))?.extract()
+        engine
+            .call_method1("mdl_score", (arr1.unbind(), neighbors))?
+            .extract()
     })
 }

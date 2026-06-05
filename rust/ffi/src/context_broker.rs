@@ -44,9 +44,7 @@ pub(crate) fn get_or_init_repo(py: Python<'_>) -> PyResult<Bound<'_, PyAny>> {
     let _ = CB_REPO.set(instance.clone().unbind());
     Ok(CB_REPO
         .get()
-        .ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("CB repo init race")
-        })?
+        .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("CB repo init race"))?
         .bind(py)
         .clone())
 }
@@ -58,11 +56,7 @@ pub(crate) fn get_or_init_repo(py: Python<'_>) -> PyResult<Bound<'_, PyAny>> {
 /// Releases the GIL during the embedding + dedup decision (D1.3).
 #[allow(clippy::needless_pass_by_value)]
 #[pyfunction]
-pub fn cb_ingest_chunk(
-    project: String,
-    content: String,
-    category: String,
-) -> PyResult<Py<PyAny>> {
+pub fn cb_ingest_chunk(project: String, content: String, category: String) -> PyResult<Py<PyAny>> {
     Python::with_gil(|py| {
         get_or_init_repo(py)?;
         crate::embedder::get_or_init_embedder(py)?;

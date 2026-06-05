@@ -50,8 +50,7 @@ pub fn retrospective_generate(
                 let retro_mod = py2.import_bound("tools.accumulator.retrospective")?;
                 let engine_cls = retro_mod.getattr("RetrospectiveEngine")?;
                 // accumulator=None → engine creates a default KnowledgeAccumulatorRepository
-                let engine =
-                    engine_cls.call1((repo_py, Option::<Py<PyAny>>::None, embedder_py))?;
+                let engine = engine_cls.call1((repo_py, Option::<Py<PyAny>>::None, embedder_py))?;
 
                 let kw = PyDict::new_bound(py2);
                 kw.set_item("milestone", milestone.as_str())?;

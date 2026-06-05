@@ -52,9 +52,8 @@ fn handle_retrospective(
 
 fn handle_phase_report(project: String, phase: String) -> Result<(), BoxError> {
     harnais_ffi::runtime::init_python_runtime().map_err(ffi_err)?;
-    let result =
-        harnais_ffi::retrospective::generate_internal(project, phase, 30, false)
-            .map_err(ffi_err)?;
+    let result = harnais_ffi::retrospective::generate_internal(project, phase, 30, false)
+        .map_err(ffi_err)?;
 
     println!("Phase report: {}", result.project);
     println!("  Phase      : {}", result.milestone);
@@ -119,7 +118,10 @@ fn handle_deduplicate() -> Result<(), BoxError> {
     println!("Deduplicating {} entries…", entries.len());
     // Emit all entries as-is (real dedup uses mdl_score between embeddings)
     // This scaffold ensures the CLI integrates; real logic comes with the CB embedder
-    println!("  {} entries after deduplication (no-op scaffold)", entries.len());
+    println!(
+        "  {} entries after deduplication (no-op scaffold)",
+        entries.len()
+    );
     Ok(())
 }
 

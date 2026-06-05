@@ -51,8 +51,8 @@ fn test_embed_single_shape_768() {
 #[test]
 fn test_embed_single_finite_values() {
     require_harnais!();
-    let vec = harnais_ffi::embedder::embed_single_internal("test".to_string())
-        .expect("embed_single");
+    let vec =
+        harnais_ffi::embedder::embed_single_internal("test".to_string()).expect("embed_single");
     assert!(
         vec.iter().all(|v| v.is_finite()),
         "embedding contains NaN or Inf"
@@ -128,7 +128,12 @@ fn test_cb_ingest_and_get_recent() {
     .expect("cb_ingest_chunk");
 
     pyo3::Python::with_gil(|py| {
-        let action: String = result.bind(py).getattr("action").unwrap().extract().unwrap();
+        let action: String = result
+            .bind(py)
+            .getattr("action")
+            .unwrap()
+            .extract()
+            .unwrap();
         assert!(
             ["CREATE_NEW", "MERGE", "DISCARD"].contains(&action.as_str()),
             "unexpected action: {action}"
@@ -145,9 +150,12 @@ fn test_cb_ingest_and_get_recent() {
 #[test]
 fn test_cb_get_recent_empty_project() {
     require_harnais!();
-    let chunks =
-        harnais_ffi::context_broker::get_recent_internal("nonexistent-project".to_string(), 7, None)
-            .expect("get_recent_internal");
+    let chunks = harnais_ffi::context_broker::get_recent_internal(
+        "nonexistent-project".to_string(),
+        7,
+        None,
+    )
+    .expect("get_recent_internal");
     // Should return empty list, not an error
     assert_eq!(chunks.len(), 0, "unknown project should return empty list");
 }

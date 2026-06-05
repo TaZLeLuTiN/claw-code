@@ -25,9 +25,9 @@ pub fn init_python_runtime() -> PyResult<()> {
         });
 
         if !std::path::Path::new(&harnais_home).join("tools").exists() {
-            return Err(PyErr::new::<pyo3::exceptions::PyImportError, _>(
-                format!("HARNAIS tools/ not found under: {harnais_home}"),
-            ));
+            return Err(PyErr::new::<pyo3::exceptions::PyImportError, _>(format!(
+                "HARNAIS tools/ not found under: {harnais_home}"
+            )));
         }
 
         // Venv site-packages (sentence-transformers, numpy, scipy…)

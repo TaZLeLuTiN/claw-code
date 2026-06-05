@@ -78,7 +78,10 @@ fn harnais_init_creates_config() {
 
     let out = claw(&dir, &["init"]);
     assert!(out.status.success(), "stderr: {}", stderr(&out));
-    assert!(dir.join(".harnais.toml").exists(), ".harnais.toml should exist");
+    assert!(
+        dir.join(".harnais.toml").exists(),
+        ".harnais.toml should exist"
+    );
 
     let content = fs::read_to_string(dir.join(".harnais.toml")).expect("read config");
     assert!(content.contains("version      = \"14.0.0\""));
@@ -127,7 +130,10 @@ fn harnais_upgrade_bumps_version() {
     assert!(out.status.success(), "stderr: {}", stderr(&out));
 
     let content = fs::read_to_string(dir.join(".harnais.toml")).expect("read config");
-    assert!(content.contains("14.0.0"), "version should be bumped to 14.0.0");
+    assert!(
+        content.contains("14.0.0"),
+        "version should be bumped to 14.0.0"
+    );
 }
 
 #[test]
@@ -146,7 +152,10 @@ fn harnais_skip_and_why_roundtrip() {
     let dir = unique_temp_dir("skip-why");
     setup_project(&dir);
 
-    let skip = claw(&dir, &["skip", "test::my_test", "--reason", "broken upstream"]);
+    let skip = claw(
+        &dir,
+        &["skip", "test::my_test", "--reason", "broken upstream"],
+    );
     assert!(skip.status.success(), "stderr: {}", stderr(&skip));
 
     let why = claw(&dir, &["why", "test::my_test"]);

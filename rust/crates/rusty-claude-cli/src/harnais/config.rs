@@ -117,8 +117,8 @@ pub fn find_config_root() -> Option<PathBuf> {
 
 /// Load and parse `.harnais.toml` from the nearest project root.
 pub fn load_config() -> Result<HarnaisConfig, Box<dyn std::error::Error>> {
-    let root = find_config_root()
-        .ok_or("No .harnais.toml found in current or parent directories")?;
+    let root =
+        find_config_root().ok_or("No .harnais.toml found in current or parent directories")?;
     let content = std::fs::read_to_string(root.join(".harnais.toml"))?;
     Ok(toml::from_str(&content)?)
 }

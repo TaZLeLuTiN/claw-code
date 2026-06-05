@@ -1,6 +1,6 @@
 //! Bridge pour intégrer les providers dans le CLI existant
 
-use crate::providers::{create_provider, ProviderConfig, ChatRequest, ChatMessage};
+use crate::providers::{create_provider, ChatMessage, ChatRequest, ProviderConfig};
 
 /// Interface compatible avec l'ancien système mais utilisant nos providers
 pub struct MultiProviderClient {
@@ -10,7 +10,7 @@ pub struct MultiProviderClient {
 impl MultiProviderClient {
     pub fn new(model: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let (provider_type, model_name) = parse_model_name(model);
-        
+
         let config = ProviderConfig {
             provider_type: provider_type.clone(), // Cloner pour éviter le move
             api_key: get_api_key(&provider_type),
@@ -19,12 +19,15 @@ impl MultiProviderClient {
             max_tokens: Some(4096),
             temperature: Some(0.2),
         };
-        
+
         let provider = create_provider(config)?;
         Ok(Self { provider })
     }
-    
-    pub async fn chat_completion(&mut self, messages: Vec<ChatMessage>) -> Result<String, Box<dyn std::error::Error>> {
+
+    pub async fn chat_completion(
+        &mut self,
+        messages: Vec<ChatMessage>,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let request = ChatRequest {
             messages,
             model: None,
@@ -32,14 +35,18 @@ impl MultiProviderClient {
             temperature: None,
             tools: None,
         };
-        
+
         let response = self.provider.chat_completion(request).await?;
         Ok(response.content)
     }
 }
 
 fn parse_model_name(model: &str) -> (String, String) {
-    if model.contains("codellama") || model.contains("starcoder") || model.contains("deepseek") || model.contains("mistral") {
+    if model.contains("codellama")
+        || model.contains("starcoder")
+        || model.contains("deepseek")
+        || model.contains("mistral")
+    {
         ("ollama".to_string(), model.to_string())
     } else if model.contains("deepseek") {
         ("deepseek".to_string(), model.to_string())

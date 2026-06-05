@@ -6,12 +6,12 @@ pub fn handle(args: ArchArgs) -> Result<(), Box<dyn std::error::Error>> {
     match args.command {
         ArchCommand::Check => handle_check(),
         ArchCommand::Status => handle_status(),
-        ArchCommand::Ingest(_) => {
-            Err(Box::from("arch ingest: not yet implemented (VIA_FFI — Étape 3.3)"))
-        }
-        ArchCommand::IngestAll(_) => {
-            Err(Box::from("arch ingest-all: not yet implemented (VIA_FFI — Étape 3.3)"))
-        }
+        ArchCommand::Ingest(_) => Err(Box::from(
+            "arch ingest: not yet implemented (VIA_FFI — Étape 3.3)",
+        )),
+        ArchCommand::IngestAll(_) => Err(Box::from(
+            "arch ingest-all: not yet implemented (VIA_FFI — Étape 3.3)",
+        )),
     }
 }
 

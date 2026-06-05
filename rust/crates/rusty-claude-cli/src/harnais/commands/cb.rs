@@ -61,8 +61,8 @@ fn handle_start() -> Result<(), BoxError> {
         .join("scripts")
         .join("harnais");
 
-    let runtime_dir = config::harnais_runtime_dir()
-        .ok_or("No .harnais.toml found — run `claw init` first")?;
+    let runtime_dir =
+        config::harnais_runtime_dir().ok_or("No .harnais.toml found — run `claw init` first")?;
     std::fs::create_dir_all(&runtime_dir)?;
 
     let log_path = runtime_dir.join("cb.log");
@@ -170,7 +170,11 @@ fn handle_query(project: String, days: i64, category: Option<String>) -> Result<
     )
     .map_err(ffi_err)?;
 
-    println!("{} chunk(s) for '{}' (last {days} day(s)):", chunks.len(), project);
+    println!(
+        "{} chunk(s) for '{}' (last {days} day(s)):",
+        chunks.len(),
+        project
+    );
     for chunk in &chunks {
         let preview: String = chunk.content.chars().take(80).collect();
         let ellipsis = if chunk.content.len() > 80 { "…" } else { "" };
@@ -185,9 +189,8 @@ fn handle_query(project: String, days: i64, category: Option<String>) -> Result<
 #[allow(clippy::needless_pass_by_value)]
 fn handle_handoff(project: String) -> Result<(), BoxError> {
     harnais_ffi::runtime::init_python_runtime().map_err(ffi_err)?;
-    let chunks =
-        harnais_ffi::context_broker::get_recent_internal(project.clone(), 7, None)
-            .map_err(ffi_err)?;
+    let chunks = harnais_ffi::context_broker::get_recent_internal(project.clone(), 7, None)
+        .map_err(ffi_err)?;
 
     println!("=== Handoff — project: {project} ===");
     println!("Recent context ({} chunk(s), last 7 days):\n", chunks.len());
@@ -212,7 +215,10 @@ fn handle_purge(project: String, yes: bool) -> Result<(), BoxError> {
     let cb_dir = root.join(".harnais").join("cb_data").join(&project);
     if cb_dir.exists() {
         std::fs::remove_dir_all(&cb_dir)?;
-        println!("Purged CB data for project '{project}': {}", cb_dir.display());
+        println!(
+            "Purged CB data for project '{project}': {}",
+            cb_dir.display()
+        );
     } else {
         println!("No local CB data found for project '{project}'");
     }

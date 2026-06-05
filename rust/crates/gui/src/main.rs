@@ -1,20 +1,20 @@
+use anyhow::Result;
 use axum::{
+    extract::{Json, Path, State},
+    http::StatusCode,
+    response::IntoResponse,
     routing::{get, post},
     Router,
-    extract::{Json, State, Path},
-    response::IntoResponse,
-    http::StatusCode,
 };
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use std::net::SocketAddr;
 use tower_http::services::ServeDir;
-use anyhow::Result;
-use chrono::Utc;
-use std::fs;
-use std::path::PathBuf;
-use std::collections::HashMap;
 
 mod ollama;
 use ollama::OllamaService;
@@ -39,7 +39,7 @@ pub struct AIModel {
     pub recommended_for: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)] 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelRecommendation {
     pub role: String,
     pub primary_model: String,
@@ -85,13 +85,18 @@ async fn create_project(
         framework: "BMAD".to_string(),
         created_at: Utc::now().to_rfc3339(),
     };
-    
+
     setup_project_structure(&config.path, &config.name)?;
-    
+
     let mut projects = state.projects.lock().await;
     projects.insert(payload.name.clone(), config);
-    
-    Ok((StatusCode::CREATED, Json(ResponseMessage { message: "Projet créé avec succès".to_string() })))
+
+    Ok((
+        StatusCode::CREATED,
+        Json(ResponseMessage {
+            message: "Projet créé avec succès".to_string(),
+        }),
+    ))
 }
 
 async fn get_ai_models(State(state): State<AppState>) -> impl IntoResponse {
@@ -103,13 +108,14 @@ async fn generate_text(
     State(state): State<AppState>,
     Json(payload): Json<GenerateRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let response = state.ollama.generate(&payload.model, &payload.prompt).await?;
+    let response = state
+        .ollama
+        .generate(&payload.model, &payload.prompt)
+        .await?;
     Ok(Json(GenerateResponse { text: response }))
 }
 
-async fn list_ollama_models(
-    State(state): State<AppState>,
-) -> Result<impl IntoResponse, AppError> {
+async fn list_ollama_models(State(state): State<AppState>) -> Result<impl IntoResponse, AppError> {
     let models = state.ollama.list_models().await?;
     Ok(Json(models))
 }
@@ -138,10 +144,10 @@ async fn get_recommendations() -> impl IntoResponse {
             role: "security".to_string(),
             primary_model: "codellama:7b".to_string(),
             fallback_model: "deepseek-coder-v2:latest".to_string(),
-	    use_case: "Audit de sécurité et revue de code".to_string(),
-        }
+            use_case: "Audit de sécurité et revue de code".to_string(),
+        },
     ];
-    
+
     Json(recommendations)
 }
 
@@ -150,11 +156,12 @@ async fn get_models_for_role(
     Path(role): Path<String>,
 ) -> impl IntoResponse {
     let models = state.ai_models.lock().await;
-    let recommended: Vec<AIModel> = models.iter()
+    let recommended: Vec<AIModel> = models
+        .iter()
         .filter(|model| model.recommended_for.contains(&role))
         .cloned()
         .collect();
-    
+
     Json(recommended)
 }
 
@@ -191,7 +198,8 @@ impl IntoResponse for AppError {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Erreur: {}", self.0),
-        ).into_response()
+        )
+            .into_response()
     }
 }
 
@@ -207,7 +215,7 @@ where
 // Fonctions utilitaires
 fn setup_project_structure(path: &PathBuf, project_name: &str) -> Result<()> {
     fs::create_dir_all(path.join(".claw-framework"))?;
-    
+
     let instructions = r#"# Instructions Fondamentales
 ## Règles absolues
 - TOLÉRANCE ZÉRO RÉGRESSION
@@ -219,88 +227,144 @@ fn setup_project_structure(path: &PathBuf, project_name: &str) -> Result<()> {
 2. Validation architecture IA
 3. Tests avant implémentation
 "#;
-    
+
     fs::write(path.join(".claw-framework/INSTRUCTIONS.md"), instructions)?;
-    
+
     let claude_content = format!("# Contexte du Projet {}\n\n## Structure BMAD\n- Brain: Prise de décision\n- Mind: Planification stratégique\n- Action: Implémentation\n- DNA: Architecture fondamentale\n\n## Règles Spécifiques\n- Validation croisée obligatoire\n- Documentation en temps réel\n- Tests unitaires pour chaque composant", 
         project_name);
-    
+
     fs::write(path.join("CLAUDE.md"), claude_content)?;
-    
+
     fs::create_dir_all(path.join("src"))?;
     fs::create_dir_all(path.join("tests"))?;
     fs::create_dir_all(path.join("docs"))?;
-    
+
     Ok(())
 }
 
-// Fonction principale  
+// Fonction principale
 #[tokio::main]
 async fn main() -> Result<()> {
-    let webui_path = std::path::Path::new("/Users/mburini/Documents/GitHub/claude/claw-code/rust/crates/web-ui/dist");
+    let webui_path = std::path::Path::new(
+        "/Users/mburini/Documents/GitHub/claude/claw-code/rust/crates/web-ui/dist",
+    );
     println!("📁 Serving from: {:?}", webui_path);
     println!("📁 Directory exists: {}", webui_path.exists());
-    
+
     let port = std::env::var("CLAW_PORT")
         .unwrap_or_else(|_| "4001".to_string())
         .parse()
         .unwrap_or(4001);
-    
+
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
 
     let ollama_service = OllamaService::new("http://localhost:11434");
-    
+
     let state = AppState {
         projects: Arc::new(Mutex::new(HashMap::new())),
         ai_models: Arc::new(Mutex::new(vec![
             AIModel {
                 name: "deepseek-coder-v2:latest".to_string(),
                 provider: "ollama".to_string(),
-                capabilities: vec!["architecture".to_string(), "refactoring".to_string(), "large-context".to_string(), "code-generation".to_string()],
+                capabilities: vec![
+                    "architecture".to_string(),
+                    "refactoring".to_string(),
+                    "large-context".to_string(),
+                    "code-generation".to_string(),
+                ],
                 size: "8.9GB".to_string(),
                 priority: 10,
-                recommended_for: vec!["architect".to_string(), "senior-developer".to_string(), "tech-lead".to_string()],
+                recommended_for: vec![
+                    "architect".to_string(),
+                    "senior-developer".to_string(),
+                    "tech-lead".to_string(),
+                ],
             },
             AIModel {
                 name: "llama3.1:70b-instruct-q4_K_M".to_string(),
                 provider: "ollama".to_string(),
-                capabilities: vec!["planning".to_string(), "strategy".to_string(), "system-design".to_string(), "decision-making".to_string()],
+                capabilities: vec![
+                    "planning".to_string(),
+                    "strategy".to_string(),
+                    "system-design".to_string(),
+                    "decision-making".to_string(),
+                ],
                 size: "42GB".to_string(),
                 priority: 9,
-                recommended_for: vec!["cto".to_string(), "product-manager".to_string(), "system-architect".to_string()],
+                recommended_for: vec![
+                    "cto".to_string(),
+                    "product-manager".to_string(),
+                    "system-architect".to_string(),
+                ],
             },
             AIModel {
                 name: "deepseek-coder:6.7b".to_string(),
                 provider: "ollama".to_string(),
-                capabilities: vec!["quick-coding".to_string(), "debugging".to_string(), "completion".to_string(), "iteration".to_string()],
+                capabilities: vec![
+                    "quick-coding".to_string(),
+                    "debugging".to_string(),
+                    "completion".to_string(),
+                    "iteration".to_string(),
+                ],
                 size: "3.8GB".to_string(),
                 priority: 8,
-                recommended_for: vec!["developer".to_string(), "junior-developer".to_string(), "prototyping".to_string()],
+                recommended_for: vec![
+                    "developer".to_string(),
+                    "junior-developer".to_string(),
+                    "prototyping".to_string(),
+                ],
             },
             AIModel {
                 name: "mistral:7b".to_string(),
                 provider: "ollama".to_string(),
-                capabilities: vec!["documentation".to_string(), "explanation".to_string(), "teaching".to_string(), "writing".to_string()],
+                capabilities: vec![
+                    "documentation".to_string(),
+                    "explanation".to_string(),
+                    "teaching".to_string(),
+                    "writing".to_string(),
+                ],
                 size: "4.4GB".to_string(),
                 priority: 7,
-                recommended_for: vec!["technical-writer".to_string(), "educator".to_string(), "documentation".to_string()],
+                recommended_for: vec![
+                    "technical-writer".to_string(),
+                    "educator".to_string(),
+                    "documentation".to_string(),
+                ],
             },
             AIModel {
                 name: "qwen2.5vl:7b".to_string(),
                 provider: "ollama".to_string(),
-                capabilities: vec!["multimodal".to_string(), "vision".to_string(), "image-analysis".to_string(), "diagrams".to_string()],
+                capabilities: vec![
+                    "multimodal".to_string(),
+                    "vision".to_string(),
+                    "image-analysis".to_string(),
+                    "diagrams".to_string(),
+                ],
                 size: "6.0GB".to_string(),
                 priority: 6,
-                recommended_for: vec!["designer".to_string(), "ux-researcher".to_string(), "visual-analysis".to_string()],
+                recommended_for: vec![
+                    "designer".to_string(),
+                    "ux-researcher".to_string(),
+                    "visual-analysis".to_string(),
+                ],
             },
             AIModel {
                 name: "codellama:7b".to_string(),
                 provider: "ollama".to_string(),
-                capabilities: vec!["security".to_string(), "code-review".to_string(), "vulnerability".to_string(), "audit".to_string()],
+                capabilities: vec![
+                    "security".to_string(),
+                    "code-review".to_string(),
+                    "vulnerability".to_string(),
+                    "audit".to_string(),
+                ],
                 size: "3.8GB".to_string(),
                 priority: 7,
-                recommended_for: vec!["security-engineer".to_string(), "auditor".to_string(), "pen-tester".to_string()],
-            }
+                recommended_for: vec![
+                    "security-engineer".to_string(),
+                    "auditor".to_string(),
+                    "pen-tester".to_string(),
+                ],
+            },
         ])),
         project_bridges: Arc::new(Mutex::new(HashMap::new())),
         ollama: Arc::new(ollama_service),
@@ -314,16 +378,20 @@ async fn main() -> Result<()> {
         .route("/api/ollama/models", get(list_ollama_models))
         .route("/api/recommendations", get(get_recommendations))
         .route("/api/models/role/:role", get(get_models_for_role))
-        .nest_service("/", ServeDir::new("/Users/mburini/Documents/GitHub/claude/claw-code/rust/crates/web-ui/dist"))
+        .nest_service(
+            "/",
+            ServeDir::new(
+                "/Users/mburini/Documents/GitHub/claude/claw-code/rust/crates/web-ui/dist",
+            ),
+        )
         .with_state(state);
 
     println!("🚀 Serveur CLAW GUI démarré sur http://{}", addr);
     println!("📊 Interface disponible à: http://localhost:{}", port);
     println!("🤖 Ollama intégré sur: http://localhost:11434");
-    
+
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 
     Ok(())
 }
-

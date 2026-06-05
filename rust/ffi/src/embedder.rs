@@ -19,9 +19,7 @@ pub(crate) fn get_or_init_embedder(py: Python<'_>) -> PyResult<Bound<'_, PyAny>>
     let _ = EMBEDDER.set(instance.clone().unbind());
     Ok(EMBEDDER
         .get()
-        .ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("embedder init race")
-        })?
+        .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("embedder init race"))?
         .bind(py)
         .clone())
 }
