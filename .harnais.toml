@@ -8,7 +8,7 @@
 
 [harnais]
 profile = "local"
-version = "1.0.0"
+version = "15.0.0"
 generated_at = "2026-06-04T13:46:37Z"
 generated_by = "harnais-deploy 0.1.0"
 
