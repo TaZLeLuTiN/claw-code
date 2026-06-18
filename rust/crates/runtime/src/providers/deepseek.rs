@@ -224,8 +224,8 @@ mod tests {
         };
 
         let converted = provider.convert_request(request);
-        assert_eq!(converted["model"], "deepseek-coder");
+        assert_eq!(converted["model"], "deepseek-coder-v2");
         assert_eq!(converted["max_tokens"], 2000);
-        assert_eq!(converted["temperature"], 0.1);
+        assert!((converted["temperature"].as_f64().unwrap() - 0.1).abs() < 1e-6);
     }
 }

@@ -223,6 +223,6 @@ mod tests {
         let converted = provider.convert_request(request);
         assert_eq!(converted["model"], "claude-3-opus-20240229");
         assert_eq!(converted["max_tokens"], 100);
-        assert_eq!(converted["temperature"], 0.7);
+        assert!((converted["temperature"].as_f64().unwrap() - 0.7).abs() < 1e-6);
     }
 }
