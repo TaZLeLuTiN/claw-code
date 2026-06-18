@@ -135,51 +135,56 @@ CREATE INDEX IF NOT EXISTS idx_issue_record_tier        ON learning.issue_record
   rejected:list[(item_id,line_no,reason)]. PAS d'`updated` (la sémantique n'existe plus).
   Observabilité NON porteuse.
 
-## Tests (TDD — écrire EN PREMIER, behaviorally-coupled)
-1. round-trip squelette : enveloppe connue → 16 colonnes identiques ; payload contient
+## Tests (TDD — 8 tests, écrire EN PREMIER, behaviorally-coupled)
+> Les tests-oracle (load-bearing) sont désignés PAR NOM, pas par numéro — un numéro casse
+> au moindre renumérotage (cf. l'ancien « 4/6/7a/7b »). Oracle = **garde anti-réembobinage**,
+> **invariant souveraineté**, **intégrité fail-loud**, **fidélité du grain**.
+
+1. **round-trip squelette** : enveloppe connue → 16 colonnes identiques ; payload contient
    tokens_in/out (dicts), engine_path, mutation_score_*, mutants_escalated, retained_added.
-2. idempotence : promote ×2 (même fichier) → même nb de lignes ; au 2e run inserted=0,
+2. **idempotence** : promote ×2 (même fichier) → même nb de lignes ; au 2e run inserted=0,
    already_present == nb de lignes valides.
-2b. GARDE anti-réembobinage : même (source_file, line_no), contenu DIFFÉRENT (digest ≠)
-    → PromotionIntegrityError (ledger tourné / source_label collisionné). Même position,
-    même contenu → already_present (pas d'erreur).
-3. tier préservé : enveloppe tier="claw-code" + tenancy NULL reste "claw-code".
-4. invariant souveraineté : claude_touched=true ⇒ sovereign=false ; l'ETL n'écrit jamais
-   sovereign (clé écartée) ; la colonne générée recalcule.
-5a. forward-compat : champ payload inconnu → JSONB, pas de crash.
-5b. version inconnue : schema_version="2" → skipped_unknown_version, pas d'insert.
-5c. intégrité : version "1" + spec absent → rejected (manifeste porté) ; autres lignes
-    valides committées ; PromotionIntegrityError levée en fin de run.
-6.  MULTIPLICITÉ (le test qui protège le grain) : N lignes même item_id (n_trials),
-    recorded_at distincts ET un cas d'erreurs byte-identiques → les N lignes présentes en PG,
-    aucune fusionnée. Re-promote → toujours N (DO NOTHING). Prouve l'absence de collapse.
-7a. DÉRIVABILITÉ — ÉGALITÉ PROFONDE (oracle obligatoire, harnais-free) : pour chaque ligne,
-    égalité des 16 colonnes ET du payload JSONB COMPLET (dict-à-dict) entre enveloppe source
-    et ligne PG reconstruite. Couvre la fidélité colonnes + JSONB. NE PAS collapser l'attendu
-    (sinon tautologie : on testerait le collapse contre lui-même).
-7b. CROSS-CHECK compute_kpis (OBLIGATOIRE EN CI, env-gated en local) : reconstruire la liste
-    COMPLÈTE de records depuis PG (grain-ligne) ; compute_kpis(records_PG, routing_rows) ==
-    compute_kpis(records_source, routing_rows) sur les 5 têtes. En local : skip-on-ImportError
-    légitime (dépendance). En CI (env CI=1) : l'absence d'import harnais est un ÉCHEC, pas un
-    skip — le job DOIT mettre harnais sur le PYTHONPATH. C'est l'unique garde du choix de grain.
+3. **garde anti-réembobinage** [oracle] : même (source_file, line_no), contenu DIFFÉRENT
+   (digest ≠) → PromotionIntegrityError (ledger tourné / source_label collisionné). Même
+   position, même contenu → already_present (pas d'erreur).
+4. **tier préservé** : enveloppe tier="claw-code" + tenancy NULL reste "claw-code".
+5. **invariant souveraineté** [oracle] : claude_touched=true ⇒ sovereign=false ; l'ETL n'écrit
+   jamais sovereign (clé écartée) ; la colonne générée recalcule.
+6. **tolérance ventilée & forward-compat** : ligne vide / JSON cassé / schema_version="2"
+   → skipped_* ventilé, pas d'insert ; champ payload inconnu → JSONB, pas de crash.
+7. **intégrité fail-loud** [oracle] : version "1" + spec absent → rejected (manifeste porté) ;
+   autres lignes valides committées ; PromotionIntegrityError levée en fin de run.
+8. **fidélité du grain** [oracle] — trois sous-checks, tous obligatoires :
+   8a. MULTIPLICITÉ : N lignes même item_id (n_trials), recorded_at distincts ET un cas
+       d'erreurs byte-identiques → les N présentes en PG, aucune fusionnée ; re-promote → N.
+       Prouve l'absence de collapse.
+   8b. ÉGALITÉ PROFONDE (harnais-free) : pour chaque ligne, égalité des 16 colonnes ET du
+       payload JSONB COMPLET (dict-à-dict) source vs PG. NE PAS collapser l'attendu (sinon
+       tautologie). Couvre la fidélité colonnes + JSONB.
+   8c. CROSS-CHECK compute_kpis (OBLIGATOIRE EN CI, env-gated en local) : reconstruire la liste
+       COMPLÈTE depuis PG ; compute_kpis(records_PG, routing_rows) ==
+       compute_kpis(records_source, routing_rows) sur les 5 têtes. Local : skip-on-ImportError
+       légitime. CI (env CI=1) : import harnais manquant = ÉCHEC, pas skip (harnais sur
+       PYTHONPATH). C'est l'unique garde du choix de grain.
 
 ## Hors périmètre (déféré — ne PAS implémenter)
 - Mapping tenancy → tenant_id, résolution linked_user_id, RLS, index tenancy → A2.
 - Vue issue_record_latest (collapse par item) → optionnelle, A2+/reporting.
 - Transport JSONL inter-hôtes → A1 prend chemin de fichier local + source_label en entrée.
-- Re-câblage PRODUCTION de la chaîne KPI sur PG → A1 = loaders de test (7a/7b) uniquement.
+- Re-câblage PRODUCTION de la chaîne KPI sur PG → A1 = loaders de test (8b/8c) uniquement.
 - KPI escalation_rescue/misroute_* : dépendent de routing_rows (ledger séparé), hors A1.
 
 ## Vérification finale
-- ruff / mypy propres ; migration v38 rejouable ; tests 1–7a verts ; 7b vert en CI
-  (skip toléré seulement hors CI) ; AUCUN import du paquet harnais dans src/learning/ (grep garde).
+- ruff / mypy propres ; migration v38 rejouable ; tests 1–8b verts ; 8c (cross-check KPI) vert
+  en CI (skip toléré seulement hors CI) ; AUCUN import du paquet harnais dans src/learning/ (grep garde).
 ```
 
 ---
 
 ## Session-typing (impl)
-1. Les 7 tests d'abord, **Claude-authored** (ils encodent le contrat).
-2. Tests **4, 6, 7a, 7b** non négociablement Claude-authored ET Claude-reviewed (oracle + grain).
+1. Les 8 tests d'abord, **Claude-authored** (ils encodent le contrat).
+2. Les tests-oracle **par nom** — garde anti-réembobinage, invariant souveraineté, intégrité
+   fail-loud, fidélité du grain (8a/8b/8c) — non négociablement Claude-authored ET Claude-reviewed.
 3. DDL + squelette ETL → Ollama local autorisé.
 4. Revue finale → Claude. Ne pas inverser.
 
