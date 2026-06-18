@@ -185,6 +185,18 @@ const TOP_LEVEL_FIELDS: &[FieldSpec] = &[
         name: "env",
         expected: FieldType::Object,
     },
+    // Régression incident (260bac3) : ces deux clés étaient lues par le parser
+    // (config.rs `aliases`, `providerFallbacks`) mais absentes de cette allowlist,
+    // donc rejetées au load. Cause racine = double SSOT (parser vs allowlist) maintenu
+    // à la main. Follow-up durable : dériver cette liste des champs réels du parser.
+    FieldSpec {
+        name: "aliases",
+        expected: FieldType::Object,
+    },
+    FieldSpec {
+        name: "providerFallbacks",
+        expected: FieldType::Object,
+    },
 ];
 
 const HOOKS_FIELDS: &[FieldSpec] = &[
