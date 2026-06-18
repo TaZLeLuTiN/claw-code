@@ -199,6 +199,21 @@ const TOP_LEVEL_FIELDS: &[FieldSpec] = &[
     },
 ];
 
+/// Noms des clés top-level valides, dérivés de `TOP_LEVEL_FIELDS` pour que le test
+/// d'invariant cesse de recopier une 2ᵉ liste.
+///
+/// ⚠⚠ NE FERME PAS la classe de l'incident #8. Ceci dérive le TEST depuis l'allowlist
+/// (test ⟸ allowlist). La cause de #8 = parser ⟶ allowlist : le parser (config.rs,
+/// `object.get("…")` bespoke) n'est PAS relié à cette liste. Un futur `object.get("x")`
+/// oublié dans TOP_LEVEL_FIELDS rejouerait #8 sans qu'aucun test l'attrape.
+/// TODO(#8-durable) — encore À FAIRE, gros refactor : parser table-driven OU
+/// assertion build-time `parser_keys ⊆ TOP_LEVEL_FIELDS`. Tant que ce TODO est là,
+/// le sujet n'est PAS clos.
+#[cfg(test)]
+pub(crate) fn top_level_field_names() -> impl Iterator<Item = &'static str> {
+    TOP_LEVEL_FIELDS.iter().map(|f| f.name)
+}
+
 const HOOKS_FIELDS: &[FieldSpec] = &[
     FieldSpec {
         name: "PreToolUse",
