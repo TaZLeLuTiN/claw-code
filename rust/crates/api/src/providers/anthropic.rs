@@ -487,6 +487,12 @@ impl AnthropicClient {
     }
 
     async fn preflight_message_request(&self, request: &MessageRequest) -> Result<(), ApiError> {
+        // Garde locale SANS réseau d'abord : une requête manifestement trop grosse est
+        // rejetée avant tout aller-retour HTTP (même barrière que les providers OpenAI/xAI).
+        // Le comptage réseau ci-dessous n'AFFINE que le borderline — il ne doit jamais être
+        // la seule barrière : il échoue ouvert (Err → Ok), ce qui laissait passer l'oversize.
+        super::preflight_message_request(request)?;
+
         let Some(limit) = model_token_limit(&request.model) else {
             return Ok(());
         };
