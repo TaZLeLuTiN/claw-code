@@ -199,6 +199,15 @@ const TOP_LEVEL_FIELDS: &[FieldSpec] = &[
     },
 ];
 
+/// Noms des clés top-level valides, DÉRIVÉS de l'unique source `TOP_LEVEL_FIELDS`
+/// (follow-up incident #8 : un test ne doit plus coder en dur une 2ᵉ liste de clés
+/// qui peut dériver de l'allowlist). Produit par gemma4:26b via le harnais loop,
+/// `#[cfg(test)]` ajouté en revue Claude (sinon dead_code hors build de test).
+#[cfg(test)]
+pub(crate) fn top_level_field_names() -> impl Iterator<Item = &'static str> {
+    TOP_LEVEL_FIELDS.iter().map(|f| f.name)
+}
+
 const HOOKS_FIELDS: &[FieldSpec] = &[
     FieldSpec {
         name: "PreToolUse",

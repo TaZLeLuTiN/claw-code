@@ -1476,6 +1476,17 @@ mod tests {
             "config with valid top-level keys must load — allowlist must cover all parser keys",
         );
 
+        // Garde DÉRIVÉE de l'unique source (config_validate::TOP_LEVEL_FIELDS) — plus de
+        // 2ᵉ liste codée en dur : les clés régressées en #8 doivent y figurer. Si une MAJ
+        // future les retire de la source, ce test tombe (drift attrapé au niveau source).
+        let known: Vec<&str> = crate::config_validate::top_level_field_names().collect();
+        for key in ["aliases", "providerFallbacks"] {
+            assert!(
+                known.contains(&key),
+                "clé '{key}' absente de l'allowlist dérivée (config_validate::TOP_LEVEL_FIELDS)"
+            );
+        }
+
         fs::remove_dir_all(root).expect("cleanup temp dir");
     }
 
