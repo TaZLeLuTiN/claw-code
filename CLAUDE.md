@@ -137,6 +137,61 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+### Session 2026-06-18 — Conception claw-code, slice A1 (promotion IssueRecord)
+
+#### Contexte
+Reprise post-harnais v15. claw-code = tier multi-user Postgres (« grand frère »).
+Deux chantiers distincts : (A) alignement/promotion ; (B) N3 multi-agent (non conçu).
+Premier slice tranché : **(A1)**, sous-découpe d'(A). Conception seule — pas d'impl.
+
+#### Terrain vérifié (par exploration, pas supposé)
+- **EUNOMIA** et **Eve** : INEXISTANTS comme composants (Eve = fixture de test).
+  Identité réelle = `IdentityAnchor` + `AgentIdentityService` (symphony/src/iam).
+- **STELE** / **MNEMOSYNE (MDL)** : réels (symphony + harnais).
+- 3 repos : `harnais/` (Python, IssueRecord+IssueLedger en JSONL, `pg_harnais` mono-tenant
+  :5433), `symphony/` (Python, tier multi-user `PG_SYMPHONY` :5432, IAM/stele),
+  `claw-code/` (Rust + petit portage Python). harnais NON packagé (pas de pyproject/setup).
+- `pg_harnais` ⟂ `PG_SYMPHONY` : 2 bases distinctes, lien HTTP/JWT, pas de pont DB.
+- `issue_record`/`KpiReport`/`Decision` : nulle part en PG aujourd'hui → rien à splitter.
+- `item_id = sha1(spec\x00test_path)[:16]` = clé LOGIQUE **NON unique**.
+  **GRAIN PAR-ESSAI** (vérifié `bench.py:189-243`) : `n_trials` records partagent le même
+  `item_id` ; `compute_kpis` agrège SUR LES ESSAIS, aucune logique item_id.
+  ⟹ **collapser sur item_id détruirait les KPI ; A1 préserve le grain-ligne.**
+  `_KNOWN_SCHEMA_VERSIONS = {"1"}`.
+
+#### Décisions tranchées
+- **Home A1 = symphony/** (PG_SYMPHONY, schéma neuf `learning`, migration v38).
+  ETL `symphony/src/learning/promote.py`, asyncpg, **sans import du paquet harnais**
+  (couplage par contrat de fil / enveloppe JSONL).
+- **Frontière A1/A2** : A1 = promotion fidèle zéro-IAM, tenancy string brut, `sovereign`
+  en colonne générée, `tier` lu jamais déduit. A2 = mapping tenant_id/RLS/linked_user_id.
+- **Grain-ligne, ZÉRO collapse** : `PK = surrogate (id IDENTITY)`, `item_id` colonne
+  indexée NON unique ; idempotence `UNIQUE (source_file, line_no)`. Garde `line_digest`
+  (sha256 ligne brute) au conflit : digest identique → `already_present` ; digest différent →
+  `PromotionIntegrityError` (ledger ré-embobiné / source_label collisionné) — drop silencieux
+  rendu bruyant. Préconditon : `source_label` stable+unique par lignée. Stats =
+  inserted/already_present/skipped_*/rejected (PAS d'`updated`). Collapse « état courant par
+  item » = VUE dérivée optionnelle (A2+), jamais la table de base.
+  [CORRECTION du tour précédent : `PK=item_id`/non-downgrade était FAUX — détruisait les KPI.]
+- **Tolérance vs intégrité** : skip ventilé (vide/json/version) ; record version-connue
+  incomplet → `rejected` (manifeste item_id+line_no+champ) + `PromotionIntegrityError` en fin
+  de run (fail-loud, sans perte).
+- **Oracle de fidélité** : 7a égalité PROFONDE colonnes+payload JSONB harnais-free (obligatoire,
+  attendu NON collapsé) + 7b cross-check `compute_kpis` **obligatoire en CI** (harnais sur
+  PYTHONPATH ; skip toléré seulement hors CI). 7b = unique garde du choix de grain.
+- Prompt complet figé : `docs/slices/A1_issue_record_promotion.md`.
+
+#### Prochaine action
+- Lancer l'impl A1 depuis le prompt (`docs/slices/A1_issue_record_promotion.md`),
+  côté repo **symphony/**. Session-typing : 7 tests Claude-authored d'abord
+  (4/6/7a non négociablement Claude) → DDL+squelette ETL Ollama local → revue Claude.
+- Puis CONCEVOIR A2 (mapping tenancy → IAM Symphony) — cycle de conception distinct.
+
+#### Blocages
+- Aucun. (Note ops déférée : transport JSONL edge→hôte symphony, hors A1.)
+
+---
+
 ## Politiques qualité (référence harnais)
 
 Ce projet applique les politiques qualité définies dans le repo harnais.
