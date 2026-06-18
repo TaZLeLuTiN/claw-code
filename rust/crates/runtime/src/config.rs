@@ -1441,6 +1441,44 @@ mod tests {
         fs::remove_dir_all(root).expect("cleanup temp dir");
     }
 
+    /// Invariant load-bearing : toute clé top-level lue par le PARSER doit figurer dans
+    /// l'allowlist du VALIDATEUR (`config_validate::TOP_LEVEL_FIELDS`), sinon de la config
+    /// VALIDE est rejetée au load — c'est l'incident `260bac3` (`aliases`/`providerFallbacks`
+    /// absents de l'allowlist → échec de chargement en prod). Encode `parser_keys ⊆ allowlist`
+    /// côté comportement. Le gate manquait : sans lui, la classe entière revient.
+    /// Follow-up durable : dériver l'allowlist des champs réels du parser (une seule SSOT).
+    #[test]
+    fn valid_top_level_keys_are_not_rejected_by_validator() {
+        // given : une config exerçant les clés top-level supportées par le parser
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".claw");
+        fs::create_dir_all(cwd.join(".claw")).expect("project config dir");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::write(
+            home.join("settings.json"),
+            r#"{
+              "$schema": "https://example.test/schema.json",
+              "model": "claude-opus-4-6",
+              "env": {},
+              "hooks": {},
+              "permissions": {},
+              "plugins": {},
+              "mcpServers": {},
+              "aliases": { "fast": "claude-haiku-4-5-20251213" },
+              "providerFallbacks": { "primary": "claude-opus-4-6", "fallbacks": ["grok-3"] }
+            }"#,
+        )
+        .expect("write settings");
+
+        // when / then : aucune clé valide ne doit être rejetée par l'allowlist
+        ConfigLoader::new(&cwd, &home).load().expect(
+            "config with valid top-level keys must load — allowlist must cover all parser keys",
+        );
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
     #[test]
     fn provider_fallbacks_default_is_empty_when_unset() {
         // given
