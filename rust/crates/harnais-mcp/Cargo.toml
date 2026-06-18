@@ -2,7 +2,9 @@
 name = "harnais-mcp"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.78"
+# MSRV réel : l'arbre de deps (chacha20 0.10, edition 2024) ne build pas sous 1.85.
+# 1.78 était une fiction prouvée (cf. CI). Nos crates restent en edition 2021.
+rust-version = "1.85"
 description = "Harnais MCP server — exposes Ollama as MCP tools + IA classifier"
 publish = false
 
