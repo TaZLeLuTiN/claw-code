@@ -11,10 +11,20 @@ profile = "local"
 version = "15.0.0"
 generated_at = "2026-06-04T13:46:37Z"
 generated_by = "harnais-deploy 0.1.0"
+# Clés lues par `harnais status` / les gates v15 — le format deploy 0.1.0 les omettait,
+# d'où « Projet : ? / Langs : aucun ». Réalignées sur les templates v15.
+project_name = "claw-code"
+project_type = "system"          # CLI/runtime Rust (system|web|data|library)
+
+[languages]
+rust       = true
+python     = true
+cpp        = false
+typescript = false
 
 [project]
 name = "claw-code"
-type = "unknown"
+type = "system"
 path = "/Users/mburini/Documents/GitHub/claw-code"
 
 [harnais.local]
