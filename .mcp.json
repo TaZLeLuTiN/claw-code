@@ -1,0 +1,10 @@
+{
+  "_comment": "Managed by harnais-deploy (Couche 2). HTTP = daemon partagé multi-projets. Token via ${HARNAIS_MCP_TOKEN} (jamais en clair).",
+  "mcpServers": {
+    "harnais": {
+      "type": "http",
+      "url": "http://127.0.0.1:7331/mcp",
+      "headers": { "Authorization": "Bearer ${HARNAIS_MCP_TOKEN}" }
+    }
+  }
+}

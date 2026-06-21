@@ -23,3 +23,4 @@ knowledge/KNOWLEDGE_PENDING.jsonl
 .env.test
 .env.production
 .DS_Store
+.harnais.toml.bak

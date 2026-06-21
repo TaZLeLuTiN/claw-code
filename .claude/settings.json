@@ -1,0 +1,14 @@
+{
+  "_comment": "Managed by harnais-deploy — engagement + enforcement (Couches 1 & 3). Edit via `harnais-deploy init --force`.",
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "PYTHONPATH=\"/Users/mburini/Documents/GitHub/harnais\" python3 \"/Users/mburini/Documents/GitHub/harnais/scripts/harnais\" session-up --json" } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "PYTHONPATH=\"/Users/mburini/Documents/GitHub/harnais\" python3 \"/Users/mburini/Documents/GitHub/harnais/scripts/harnais\" session-down --json" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "PYTHONPATH=\"/Users/mburini/Documents/GitHub/harnais\" python3 \"/Users/mburini/Documents/GitHub/harnais/scripts/harnais\" stop-gate" } ] }
+    ]
+  }
+}
