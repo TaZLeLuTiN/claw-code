@@ -10,6 +10,12 @@ enabled = true
 always_load = ["CLAUDE.md"]
 never_auto_load = ["docs/DONE/"]
 
+[cube.severity_weights]
+Bloq = 30
+Maj = 10
+Min = 3
+Moy = 5
+
 [gates]
 atdd = false
 bdd = false
@@ -27,10 +33,10 @@ exclude = [".git/", "docs/DONE/"]
 threshold = 10
 
 [harnais]
-generated_at = "2026-06-21T19:14:15Z"
+generated_at = "2026-06-23T05:07:35Z"
 generated_by = "harnais-deploy 15.1.0"
 profile = "local"
-schema_stamp = 0
+schema_stamp = 1
 
 [harnais.hooks]
 pre_commit_enabled = true
