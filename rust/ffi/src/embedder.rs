@@ -8,7 +8,7 @@ pub(crate) static EMBEDDER: OnceLock<Py<PyAny>> = OnceLock::new();
 /// Return (or lazily init) the cached `LaBSEEmbedder` Python instance.
 ///
 /// `LaBSE` loads ~2 GB on first call; subsequent calls are O(1).
-/// Set `HARNAIS_EMBEDDER_FAKE=1` to use the SHA-256 stub (no model download).
+/// There is no fake mode: harnais removed `HARNAIS_EMBEDDER_FAKE` (RAF-HARNAIS-203) — the model is real or the call fails.
 pub(crate) fn get_or_init_embedder(py: Python<'_>) -> PyResult<Bound<'_, PyAny>> {
     if let Some(e) = EMBEDDER.get() {
         return Ok(e.bind(py).clone());

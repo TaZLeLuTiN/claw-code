@@ -9,26 +9,8 @@ use crate::sandbox::{FilesystemIsolationMode, SandboxConfig};
 /// Schema name advertised by generated settings files.
 pub const CLAW_SETTINGS_SCHEMA_NAME: &str = "SettingsSchema";
 
-/// Top-level settings keys recognized by the runtime configuration loader.
-const KNOWN_TOP_LEVEL_KEYS: &[&str] = &[
-    "$schema",
-    "enabledPlugins",
-    "env",
-    "hooks",
-    "mcpServers",
-    "model",
-    "oauth",
-    "permissionMode",
-    "permissions",
-    "plugins",
-    "sandbox",
-];
-
-/// Deprecated top-level keys mapped to their replacement guidance.
-const DEPRECATED_TOP_LEVEL_KEYS: &[(&str, &str)] = &[
-    ("allowedTools", "permissions.allow"),
-    ("ignorePatterns", "permissions.deny"),
-];
+// Les clés reconnues, obsolètes et retirées vivent dans `config_validate` (seule source appliquée) : les deux
+// listes qui étaient ici (`KNOWN_TOP_LEVEL_KEYS`, `DEPRECATED_TOP_LEVEL_KEYS`) n'étaient plus lues par personne.
 
 /// Origin of a loaded settings file in the configuration precedence chain.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -1253,11 +1235,15 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_dir() -> std::path::PathBuf {
+        // L'horodatage SEUL collisionnait entre tests PARALLÈLES (résolution d'horloge) : l'un effaçait le
+        // répertoire de l'autre (`parses_plugin_config_from_enabled_plugins`, rouge par intermittence).
+        static COMPTEUR: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let n = COMPTEUR.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("time should be after epoch")
             .as_nanos();
-        std::env::temp_dir().join(format!("runtime-config-{nanos}"))
+        std::env::temp_dir().join(format!("runtime-config-{}-{nanos}-{n}", std::process::id()))
     }
 
     #[test]
@@ -1980,11 +1966,12 @@ mod tests {
         // then
         let rendered = error.to_string();
         assert!(
-            rendered.contains(&format!("{}:3:", user_settings.display())),
+            rendered.contains(&user_settings.display().to_string())
+                && rendered.contains("(line 3)"),
             "error should include file path and line number, got: {rendered}"
         );
         assert!(
-            rendered.contains("unknown field telemetry"),
+            rendered.contains("unknown key \"telemetry\""),
             "error should name the offending field, got: {rendered}"
         );
 
@@ -2014,12 +2001,13 @@ mod tests {
         // then
         let rendered = error.to_string();
         assert!(
-            rendered.contains(&format!("{}:3:", user_settings.display())),
+            rendered.contains(&user_settings.display().to_string())
+                && rendered.contains("(line 3)"),
             "error should include file path and line number, got: {rendered}"
         );
         assert!(
-            rendered.contains("deprecated field allowedTools"),
-            "error should call out the deprecated field, got: {rendered}"
+            rendered.contains("\"allowedTools\" is no longer supported"),
+            "error should call out the removed field, got: {rendered}"
         );
         assert!(
             rendered.contains("permissions.allow"),
@@ -2052,11 +2040,12 @@ mod tests {
         // then
         let rendered = error.to_string();
         assert!(
-            rendered.contains(&format!("{}: hooks", user_settings.display())),
+            rendered.contains(&user_settings.display().to_string())
+                && rendered.contains("\"hooks.PreToolUse\""),
             "error should include file path and field path, got: {rendered}"
         );
         assert!(
-            rendered.contains("PreToolUse must be an array"),
+            rendered.contains("must be an array"),
             "error should describe the type mismatch, got: {rendered}"
         );
 
@@ -2082,11 +2071,11 @@ mod tests {
         // then
         let rendered = error.to_string();
         assert!(
-            rendered.contains("unknown field modle"),
+            rendered.contains("unknown key \"modle\""),
             "error should name the offending field, got: {rendered}"
         );
         assert!(
-            rendered.contains("did you mean model?"),
+            rendered.contains("Did you mean \"model\"?"),
             "error should suggest the closest known key, got: {rendered}"
         );
 

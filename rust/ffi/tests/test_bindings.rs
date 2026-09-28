@@ -2,7 +2,8 @@
 //
 // Integration tests for Phase B Étape 2 ML bindings.
 use pyo3::prelude::*;
-// Requires: HARNAIS_EMBEDDER_FAKE=1 (avoids loading the 2 GB LaBSE model).
+// Loads the REAL LaBSE model (~2 GB) : harnais has no fake embedder mode since RAF-HARNAIS-203 (2026-09-28,
+// « zéro simulation en production ») — `HARNAIS_EMBEDDER_FAKE` is no longer read.
 // Skips gracefully when HARNAIS tools/ or CB are unavailable.
 
 static PYTHON_INIT: std::sync::Once = std::sync::Once::new();

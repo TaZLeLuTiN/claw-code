@@ -26,6 +26,11 @@ pub enum DiagnosticKind {
     Deprecated {
         replacement: &'static str,
     },
+    /// Clé qui n'est plus LUE : une ERREUR (la config ne ferait pas ce que l'utilisateur croit), qui nomme la
+    /// clé de remplacement — jamais un simple « unknown key », qui perdrait la consigne de migration.
+    Removed {
+        replacement: &'static str,
+    },
 }
 
 impl std::fmt::Display for ConfigDiagnostic {
@@ -57,6 +62,13 @@ impl std::fmt::Display for ConfigDiagnostic {
                 write!(
                     f,
                     "{}: field \"{}\" is deprecated{location}. Use \"{replacement}\" instead",
+                    self.path, self.field
+                )
+            }
+            DiagnosticKind::Removed { replacement } => {
+                write!(
+                    f,
+                    "{}: field \"{}\" is no longer supported{location}. Use \"{replacement}\" instead",
                     self.path, self.field
                 )
             }
@@ -336,6 +348,19 @@ const DEPRECATED_FIELDS: &[DeprecatedField] = &[
     },
 ];
 
+/// Clés top-level RETIRÉES (plus lues par le parser) et leur remplacement. Héritées de l'ancien validateur de
+/// `config.rs` (`DEPRECATED_TOP_LEVEL_KEYS`, code mort depuis `260bac3`) : c'est ICI qu'elles sont appliquées.
+const REMOVED_FIELDS: &[DeprecatedField] = &[
+    DeprecatedField {
+        name: "allowedTools",
+        replacement: "permissions.allow",
+    },
+    DeprecatedField {
+        name: "ignorePatterns",
+        replacement: "permissions.deny",
+    },
+];
+
 // ---- line-number resolution ----
 
 /// Find the 1-based line number where a JSON key first appears in the raw source.
@@ -453,6 +478,15 @@ pub fn validate_config_file(
 ) -> ValidationResult {
     let path_display = file_path.display().to_string();
     let mut result = validate_object_keys(object, TOP_LEVEL_FIELDS, "", source, &path_display);
+
+    // Une clé RETIRÉE n'est pas « inconnue » : elle a un remplacement, et l'erreur le nomme.
+    for diag in &mut result.errors {
+        if let Some(removed) = REMOVED_FIELDS.iter().find(|r| r.name == diag.field) {
+            diag.kind = DiagnosticKind::Removed {
+                replacement: removed.replacement,
+            };
+        }
+    }
 
     // Check deprecated fields.
     for deprecated in DEPRECATED_FIELDS {
@@ -909,6 +943,31 @@ mod tests {
         assert_eq!(
             output,
             r#"/test/settings.json: field "permissionMode" is deprecated (line 3). Use "permissions.defaultMode" instead"#
+        );
+    }
+
+    #[test]
+    fn removed_top_level_keys_are_errors_that_name_their_replacement() {
+        // given : `allowedTools` / `ignorePatterns` ne sont plus LUS par le parser. Les signaler comme
+        // « unknown key » perdait la consigne de migration (régression du 2026-06, config_validate).
+        let source = "{\n  \"model\": \"opus\",\n  \"allowedTools\": [\"Read\"],\n  \"ignorePatterns\": []\n}\n";
+        let object = match crate::json::JsonValue::parse(source).expect("json") {
+            crate::json::JsonValue::Object(o) => o,
+            other => panic!("objet attendu, eu {other:?}"),
+        };
+
+        // when
+        let result = validate_config_file(&object, source, Path::new("/test/settings.json"));
+
+        // then
+        let rendus: Vec<String> = result.errors.iter().map(ToString::to_string).collect();
+        assert_eq!(result.errors.len(), 2, "{rendus:?}");
+        assert!(rendus.contains(&r#"/test/settings.json: field "allowedTools" is no longer supported (line 3). Use "permissions.allow" instead"#.to_string()), "{rendus:?}");
+        assert!(
+            rendus
+                .iter()
+                .any(|r| r.contains("ignorePatterns") && r.contains("permissions.deny")),
+            "{rendus:?}"
         );
     }
 }
