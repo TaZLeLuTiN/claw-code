@@ -689,7 +689,11 @@ impl CommandWithStdin {
     ) -> std::io::Result<CommandExecution> {
         let mut child = self.command.spawn()?;
         if let Some(mut child_stdin) = child.stdin.take() {
-            child_stdin.write_all(stdin)?;
+            // Un hook n'est pas tenu de LIRE stdin : un tube fermé (EPIPE) n'est pas un échec — le code de sortie tranche.
+            match child_stdin.write_all(stdin) {
+                Err(e) if e.kind() != std::io::ErrorKind::BrokenPipe => return Err(e),
+                _ => {}
+            }
         }
 
         loop {
@@ -714,6 +718,31 @@ enum CommandExecution {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_hook_that_does_not_read_stdin_is_not_a_failure() {
+        // given : un hook qui sort SANS lire stdin, charge > tampon d'un tube (64 Kio) ⇒ EPIPE garanti à l'écriture.
+        let mut command = std::process::Command::new("sh");
+        command.arg("-c").arg("printf ok");
+        let mut wrapper = super::CommandWithStdin::new(command);
+        wrapper.stdin(std::process::Stdio::piped());
+        wrapper.stdout(std::process::Stdio::piped());
+        let charge = vec![b'x'; 1 << 20];
+
+        // when
+        let execution = wrapper
+            .output_with_stdin(&charge, None)
+            .expect("un hook qui ignore stdin n'est pas un échec");
+
+        // then
+        match execution {
+            super::CommandExecution::Finished(sortie) => {
+                assert!(sortie.status.success());
+                assert_eq!(String::from_utf8_lossy(&sortie.stdout), "ok");
+            }
+            super::CommandExecution::Cancelled => panic!("aucune annulation demandée"),
+        }
+    }
+
     use std::thread;
     use std::time::Duration;
 

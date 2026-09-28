@@ -337,7 +337,12 @@ impl CommandWithStdin {
         let mut child = self.command.spawn()?;
         if let Some(mut child_stdin) = child.stdin.take() {
             use std::io::Write as _;
-            child_stdin.write_all(stdin)?;
+            // Un hook n'est pas tenu de LIRE stdin : s'il sort avant, l'écriture rencontre un tube fermé (EPIPE).
+            // Ce n'est pas un échec du hook — c'est son code de sortie qui le dit. (Rouge par intermittence en CI.)
+            match child_stdin.write_all(stdin) {
+                Err(e) if e.kind() != std::io::ErrorKind::BrokenPipe => return Err(e),
+                _ => {}
+            }
         }
         child.wait_with_output()
     }
@@ -345,6 +350,27 @@ impl CommandWithStdin {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_hook_that_does_not_read_stdin_is_not_a_failure() {
+        // given : un hook qui sort SANS lire stdin, et une charge plus grande que le tampon d'un tube (64 Kio) —
+        // l'écriture rencontre FORCÉMENT un tube fermé (EPIPE). Avant : « failed to start … Broken pipe ».
+        let mut command = std::process::Command::new("sh");
+        command.arg("-c").arg("printf ok");
+        let mut wrapper = super::CommandWithStdin::new(command);
+        wrapper.stdin(std::process::Stdio::piped());
+        wrapper.command.stdout(std::process::Stdio::piped());
+        let charge = vec![b'x'; 1 << 20];
+
+        // when
+        let sortie = wrapper
+            .output_with_stdin(&charge)
+            .expect("un hook qui ignore stdin n'est pas un échec");
+
+        // then
+        assert!(sortie.status.success());
+        assert_eq!(String::from_utf8_lossy(&sortie.stdout), "ok");
+    }
+
     use super::{HookRunResult, HookRunner};
     use crate::{PluginManager, PluginManagerConfig};
     use std::fs;
