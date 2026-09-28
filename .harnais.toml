@@ -10,6 +10,12 @@ enabled = true
 always_load = ["CLAUDE.md"]
 never_auto_load = ["docs/DONE/"]
 
+[cube.severity_weights]
+Bloq = 30
+Maj = 10
+Min = 3
+Moy = 5
+
 [gates]
 atdd = false
 bdd = false
@@ -27,10 +33,17 @@ exclude = [".git/", "docs/DONE/"]
 threshold = 10
 
 [harnais]
-generated_at = "2026-06-21T19:14:15Z"
+generated_at = "2026-06-23T05:07:35Z"
 generated_by = "harnais-deploy 15.1.0"
 profile = "local"
-schema_stamp = 0
+schema_stamp = 1
+project_id = "claw-code"
+# ↑ AJOUTÉ le 2026-08-27 par cc-harnais. C'est la clé que LIT le canal de preuve
+# (`tools/llm_calls.py:130` : `(d["harnais"]).get("project_id")`) — PAS `[project].name`.
+# Sans elle, `cle_de_projet` lève `ProjetNonDeclare` et `project_gate` REFUSE d'écrire
+# `gate_history.jsonl` : de la PREUVE, qui ne se régénère pas. Mesuré sur la flotte ce
+# jour-là : 3 dépôts sur 11 la portaient. Les gabarits de `harnais-deploy` l'écrivent
+# désormais à la pose (PR #610) ; ce dépôt était déjà posé, d'où le rattrapage à la main.
 
 [harnais.hooks]
 pre_commit_enabled = true
@@ -60,6 +73,11 @@ standard = "gemma3:12b"
 [harnais.ia_router.routing_rules.architecture]
 model = ""
 provider = "claude"
+# Invariant souveraineté (F1 12f38bce, adjugé Mike) : une route CC déclare un TYPE de valeur-ajoutée
+# (routing_sovereignty_gate). architecture = arbitrage de conception débordant le corpus de code local.
+# ⬅️ PROPAGÉ le 2026-09-02 : ce dépôt a été posé par harnais-deploy 15.1.0/16.0.0, AVANT que les
+# gabarits ne portent la justification. L'arbitrage existait ; la flotte ne l'avait jamais reçu.
+cc_justification = "raisonnement_hors_corpus_local"
 
 [harnais.ia_router.routing_rules.boilerplate]
 model = "fast"
@@ -72,18 +90,35 @@ provider = "ollama"
 [harnais.ia_router.routing_rules.design]
 model = ""
 provider = "claude"
+# design = arbitrage de conception hors corpus de code local (F1 12f38bce). PROPAGÉ le 2026-09-02.
+cc_justification = "raisonnement_hors_corpus_local"
+# 🔴 NE PAS attester une provenance ici. Interrogé le 2026-08-19, Mike ne donne pas une provenance
+# pour cette ligne : il CHANGE LA CIBLE — « pas claude, mais claude design ». Sa réponse dit que
+# `provider = "claude"` est FAUX ici, pas qu'il est justifié. Le `cc_justification` est posé parce
+# que le gate l'exige de TOUTE route CC ; il ne blanchit pas la route. Réf. `.harnais.toml` du
+# harnais + `docs/RATIFICATION_Mike_routage_architecture_2026-08-20.md`.
 
 [harnais.ia_router.routing_rules.distillation]
 model = "fast"
 provider = "ollama"
 
 [harnais.ia_router.routing_rules.implementation]
-model = "python|complex"
+# ⬅️ RAMENÉ de `python|complex` à `python` — décision Mike C3-a du 2026-08-19, PROPAGÉE le 2026-09-02.
+# Ce n'est pas un changement de comportement : le `|` était LU puis TRONQUÉ (`souverainete.rs:116`
+# split, `router.rs:116` garde `.first()`), donc la résolution était DÉJÀ `python` toujours. Le
+# « file-aware » annoncé n'avait pas lieu. Seconde branche de RAF-50 : soit la sémantique du `|`
+# est implémentée, soit on CESSE DE L'ÉCRIRE.
+model = "python"
 provider = "ollama"
 
 [harnais.ia_router.routing_rules.review]
-model = ""
-provider = "claude"
+model = "complex"
+provider = "ollama"
+# ⬅️ VERDICT MIKE 2026-07-07, PROPAGÉ le 2026-09-02 — ce dépôt routait encore `review` vers CC.
+# Le type "raisonnement_hors_corpus_local" est FALSIFIÉ pour la review : le dispositif-stratégie
+# PROUVE que le jugement adverse est faisable EN LOCAL (command-r) → escalade CC auto-contradictoire.
+# `complex` = gemma4:31b (reasoner local), alias vérifié présent dans [harnais.ia_router.ollama.models]
+# de ce dépôt ET installé sur l'hôte Ollama au moment de la migration.
 
 [harnais.ia_router.routing_rules.tests]
 model = "fast"
