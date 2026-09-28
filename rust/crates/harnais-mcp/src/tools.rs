@@ -100,7 +100,7 @@ pub async fn ollama_generate(
                 let _ = log_routing_decision(dsn, &prompt, "ollama", &model, duration_ms, "failed")
                     .await;
             }
-            JsonRpcResponse::err(id, -32603, format!("Ollama error: {e}"))
+            JsonRpcResponse::err(id, -32603, format!("Ollama error: {e:#}"))
         }
     }
 }
@@ -138,40 +138,154 @@ pub fn ollama_route(id: Option<Value>, args: Value) -> JsonRpcResponse {
     )
 }
 
-/// Compute a dynamic HTTP timeout based on model speed and prompt length.
+/// Seuils de SILENCE d'une génération Ollama. Une génération qui PROGRESSE n'est jamais coupée, quelle que soit sa
+/// durée ; seule une génération MUETTE l'est.
 ///
-/// Formula: (input_tokens + expected_output_tokens) / tokens_per_second * safety_factor
-///
-/// Estimated tokens/sec on Apple M-series (empirical, conservative):
-///   gemma3:4b=60, gemma3:12b=25, gemma4:26b=15, gemma4:31b=12,
-///   qwen2.5:14b=18, qwen2.5:32b=8, 70b=4, default=15
-pub fn compute_timeout(model: &str, prompt: &str) -> std::time::Duration {
-    let tokens_per_sec: f64 = if model.contains("3:4b") {
-        60.0
-    } else if model.contains("3:12b") {
-        25.0
-    } else if model.contains("4:26b") {
-        15.0
-    } else if model.contains("4:31b") {
-        12.0
-    } else if model.contains("qwen2.5:14") {
-        18.0
-    } else if model.contains("qwen2.5:32") {
-        8.0
-    } else if model.contains("70b") {
-        4.0
-    } else {
-        15.0
-    };
+/// Remplace `compute_timeout` (retiré le 2026-09-28) : il PRÉDISAIT la durée avec des vitesses écrites en dur
+/// (`gemma4:31b` = 12 tok/s) et 600 jetons de sortie. Mesuré sur le Mac : 6,3 tok/s et 1942 jetons pour un prompt
+/// de 4,6 Ko (341 s) — `cc-symphony` a vu gemma4 échouer 2 fois sur 2 au-delà du délai prédit.
+#[derive(Debug, Clone, Copy)]
+pub struct Silences {
+    /// Avant le PREMIER jeton : chargement du modèle + lecture du prompt (mesuré : 15 s + 20 s pour 1,5 k jetons).
+    pub premier: std::time::Duration,
+    /// Entre deux morceaux, une fois la génération partie.
+    pub entre: std::time::Duration,
+}
 
-    let input_tokens = (prompt.len() / 4) as f64;
-    let expected_output_tokens: f64 = 600.0;
-    let safety_factor: f64 = 2.5;
+impl Default for Silences {
+    fn default() -> Self {
+        Self {
+            premier: std::time::Duration::from_secs(600),
+            entre: std::time::Duration::from_secs(120),
+        }
+    }
+}
 
-    let raw_secs =
-        ((input_tokens + expected_output_tokens) / tokens_per_sec * safety_factor) as u64;
+/// Assemble le flux NDJSON d'`/api/generate` (`stream: true`), coupé n'importe où par le transport.
+#[derive(Debug, Default)]
+pub struct Flux {
+    tampon: String,
+    texte: String,
+    fini: bool,
+    eval_count: Option<u64>,
+    eval_duration_ns: Option<u64>,
+}
 
-    std::time::Duration::from_secs(raw_secs.clamp(30, 600))
+impl Flux {
+    /// Ajoute des octets reçus ; chaque ligne COMPLÈTE est lue, le reste attend la suite.
+    pub fn pousser(&mut self, octets: &[u8]) -> Result<()> {
+        self.tampon.push_str(&String::from_utf8_lossy(octets));
+        while let Some(fin) = self.tampon.find('\n') {
+            let ligne: String = self.tampon.drain(..=fin).collect();
+            let ligne = ligne.trim();
+            if ligne.is_empty() {
+                continue;
+            }
+            let v: Value = serde_json::from_str(ligne)
+                .map_err(|e| anyhow::anyhow!("ligne du flux Ollama illisible ({e}) : {ligne}"))?;
+            if let Some(err) = v.get("error").and_then(Value::as_str) {
+                anyhow::bail!("Ollama : {err}");
+            }
+            if let Some(r) = v.get("response").and_then(Value::as_str) {
+                self.texte.push_str(r);
+            }
+            if v.get("done").and_then(Value::as_bool) == Some(true) {
+                self.fini = true;
+                self.eval_count = v.get("eval_count").and_then(Value::as_u64);
+                self.eval_duration_ns = v.get("eval_duration").and_then(Value::as_u64);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn fini(&self) -> bool {
+        self.fini
+    }
+
+    pub fn texte(&self) -> &str {
+        &self.texte
+    }
+
+    /// Vitesse de sortie MESURÉE par Ollama (dernière ligne) ; `None` tant qu'elle n'est pas donnée — jamais supposée.
+    #[allow(clippy::cast_precision_loss)]
+    pub fn vitesse_tok_s(&self) -> Option<f64> {
+        match (self.eval_count, self.eval_duration_ns) {
+            (Some(n), Some(d)) if d > 0 => Some(n as f64 / (d as f64 / 1e9)),
+            _ => None,
+        }
+    }
+}
+
+/// Une génération aboutie, avec ce qu'Ollama a MESURÉ.
+#[derive(Debug)]
+pub struct Generation {
+    pub texte: String,
+    pub tok_s: Option<f64>,
+}
+
+/// Génère en FLUX : abandonne sur un silence (`Silences`), jamais sur une durée totale prédite.
+pub async fn generer_en_flux(
+    host: &str,
+    model: &str,
+    prompt: &str,
+    silences: Silences,
+) -> Result<Generation> {
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let url = format!("{}/api/generate", host.trim_end_matches('/'));
+    let body = serde_json::json!({ "model": model, "prompt": prompt, "stream": true });
+
+    let mut resp = tokio::time::timeout(silences.premier, client.post(&url).json(&body).send())
+        .await
+        .map_err(|_| muet(model, silences.premier, 0))??;
+    if !resp.status().is_success() {
+        anyhow::bail!("Ollama HTTP {}: {}", resp.status(), resp.text().await?);
+    }
+    let mut flux = Flux::default();
+    loop {
+        let seuil = if flux.texte().is_empty() {
+            silences.premier
+        } else {
+            silences.entre
+        };
+        match tokio::time::timeout(seuil, resp.chunk()).await {
+            Err(_) => return Err(muet(model, seuil, flux.texte().len())),
+            Ok(Err(e)) => {
+                return Err(
+                    anyhow::Error::new(e).context(format!("flux Ollama interrompu ({model})"))
+                )
+            }
+            Ok(Ok(Some(octets))) => flux.pousser(&octets)?,
+            Ok(Ok(None)) => break,
+        }
+        if flux.fini() {
+            break;
+        }
+    }
+    if !flux.fini() {
+        anyhow::bail!(
+            "flux Ollama interrompu avant `done` ({model}, {} caractères reçus) : une réponse partielle n'est pas une réponse",
+            flux.texte().len()
+        );
+    }
+    let tok_s = flux.vitesse_tok_s();
+    tracing::info!(
+        model,
+        tok_s = tok_s.unwrap_or(-1.0),
+        "génération Ollama — vitesse MESURÉE"
+    );
+    Ok(Generation {
+        texte: flux.texte,
+        tok_s,
+    })
+}
+
+fn muet(model: &str, seuil: std::time::Duration, recus: usize) -> anyhow::Error {
+    anyhow::anyhow!(
+        "Ollama MUET depuis {} s ({model}, {recus} caractères reçus) — abandonné sur SILENCE, pas sur lenteur",
+        seuil.as_secs()
+    )
 }
 
 async fn call_ollama(host: &str, model: &str, prompt: &str) -> Result<String> {
@@ -193,41 +307,9 @@ fn is_connect_error(e: &anyhow::Error) -> bool {
 }
 
 async fn call_ollama_raw(host: &str, model: &str, prompt: &str) -> Result<String> {
-    let client = reqwest::Client::new();
-    let url = format!("{}/api/generate", host.trim_end_matches('/'));
-
-    let body = serde_json::json!({
-        "model": model,
-        "prompt": prompt,
-        "stream": false
-    });
-
-    let timeout = compute_timeout(model, prompt);
-    tracing::debug!(
-        model,
-        prompt_len = prompt.len(),
-        timeout_secs = timeout.as_secs(),
-        "Dynamic timeout computed"
-    );
-
-    let resp = client
-        .post(&url)
-        .json(&body)
-        .timeout(timeout)
-        .send()
-        .await?;
-
-    if !resp.status().is_success() {
-        anyhow::bail!("Ollama HTTP {}: {}", resp.status(), resp.text().await?);
-    }
-
-    let json: serde_json::Value = resp.json().await?;
-    let response_text = json["response"]
-        .as_str()
-        .ok_or_else(|| anyhow::anyhow!("No 'response' field in Ollama output"))?
-        .to_string();
-
-    Ok(response_text)
+    Ok(generer_en_flux(host, model, prompt, Silences::default())
+        .await?
+        .texte)
 }
 
 async fn log_routing_decision(
