@@ -20,6 +20,7 @@ jobs:
   build:
     name: build-${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60   # borne : un job bloqué doit ÉCHOUER, pas tourner sans fin (etapes-gate)
     strategy:
       fail-fast: false
       matrix:

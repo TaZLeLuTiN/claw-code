@@ -59,7 +59,7 @@ model = "claude-sonnet-4-6"
 
 [harnais.ia_router.ollama]
 host = "http://localhost:11434"
-mcp_bin = "/Users/mburini/Documents/GitHub/claw-code/target/debug/harnais-mcp"
+mcp_bin = "harnais-mcp"
 mcp_enabled = true
 timeout_sec = "dynamic"
 
@@ -133,12 +133,12 @@ pg_user = "harnais"
 [harnais.local.dependencies]
 auto_start = true
 degraded_mode_on_failure = true
-docker_compose_path = "/Users/mburini/Documents/GitHub/harnais/infrastructure/pg_harnais/docker-compose.yml"
+docker_compose_path = "${HARNAIS_REPO}/infrastructure/pg_harnais/docker-compose.yml"
 
 [harnais.policies]
-quality_policy = "/Users/mburini/Documents/GitHub/harnais/docs/policies/QUALITY_POLICY_v1.md"
-skip_policy = "/Users/mburini/Documents/GitHub/harnais/docs/policies/SKIP_AND_FLAKY_POLICY_v1.md"
-test_typologies = "/Users/mburini/Documents/GitHub/harnais/docs/policies/TEST_TYPOLOGIES_v1.md"
+quality_policy = "${HARNAIS_REPO}/docs/policies/QUALITY_POLICY_v1.md"
+skip_policy = "${HARNAIS_REPO}/docs/policies/SKIP_AND_FLAKY_POLICY_v1.md"
+test_typologies = "${HARNAIS_REPO}/docs/policies/TEST_TYPOLOGIES_v1.md"
 
 [hook]
 medium_threshold = 20
@@ -161,7 +161,7 @@ typescript = false
 [project]
 name = "claw-code"
 path = "/Users/mburini/Documents/GitHub/claw-code"
-type = "system"
+type = "outillage"   # nature (nature-gate) ; « system » n'en est pas une — déclaré par cc-harnais le 2026-09-28, à confirmer par Mike
 
 [reflexive]
 auto_update_claude_md = true
